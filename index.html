@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js High-Performance 3D Simulation</title>
+
+    <!-- Tailwind CSS for basic styling and responsiveness -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Apply Inter font and basic body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars due to canvas sizing */
+            background-color: #1a1a1a; /* Dark background for the app */
+        }
+        /* Make the canvas fill the container and be responsive */
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none; /* Prevent browser touch gestures on canvas */
+            outline: none; /* Remove focus outline */
+        }
+        /* Custom styles for the message box */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-align: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .message-box.show {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Babylon.js CDN Imports -->
+    <!-- Core Engine -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- Grid Material for Blender-like grid -->
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylon.gridMaterial.js"></script>
+    <!-- Inspector (for debugging and scene exploration) -->
+    <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.min.js"></script>
+    <!-- PEP.js for Pointer Events polyfill (for broader browser compatibility) -->
+    <script src="https://cdn.jsdelivr.net/npm/pepjs@0.4.3/dist/pep.min.js"></script>
+</head>
+<body class="w-screen h-screen flex flex-col items-center justify-center">
+
+    <!-- Canvas for Babylon.js rendering -->
+    <canvas id="renderCanvas" class="rounded-lg shadow-xl"></canvas>
+
+    <!-- Simple message box for custom alerts -->
+    <div id="messageBox" class="message-box">
+        <p id="messageContent"></p>
+        <button id="messageCloseButton" class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md transition duration-300">OK</button>
+    </div>
+
+    <script>
+        // Custom message box function (replaces alert/confirm)
+        function showMessageBox(message) {
+            const messageBox = document.getElementById('messageBox');
+            const messageContent = document.getElementById('messageContent');
+            const messageCloseButton = document.getElementById('messageCloseButton');
+
+            messageContent.textContent = message;
+            messageBox.classList.add('show');
+
+            const closeHandler = () => {
+                messageBox.classList.remove('show');
+                messageCloseButton.removeEventListener('click', closeHandler);
+            };
+            messageCloseButton.addEventListener('click', closeHandler);
+        }
+
+        // Global variables for engine and scene
+        let engine;
+        let scene;
+
+        // Function to create the Babylon.js scene
+        const createScene = function () {
+            const canvas = document.getElementById("renderCanvas");
+            engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+            scene = new BABYLON.Scene(engine);
+
+            // Set a dark background color for the scene
+            scene.clearColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+
+            // --- Camera Setup (ArcRotateCamera for Blender-like controls) ---
+            // Parameters: name, alpha, beta, radius, target, scene
+            const camera = new BABYLON.ArcRotateCamera("camera",
+                BABYLON.Tools.ToRadians(90),    // alpha (rotation around Y-axis)
+                BABYLON.Tools.ToRadians(60),    // beta (rotation around X-axis from pole)
+                50,                             // radius (distance from target)
+                BABYLON.Vector3.Zero(),         // target (point the camera looks at)
+                scene
+            );
+            camera.setTarget(BABYLON.Vector3.Zero()); // Ensure camera looks at origin initially
+
+            // Attach camera controls to the canvas
+            camera.attachControl(canvas, true);
+
+            // Configure camera sensitivities for a Blender-like feel
+            camera.angularSensibilityX = 200; // Controls horizontal orbit speed
+            camera.angularSensibilityY = 200; // Controls vertical orbit speed
+            camera.pinchPrecision = 200;      // Controls pinch zoom sensitivity on touch
+            camera.wheelPrecision = 0.5;      // Controls mouse wheel zoom sensitivity (lower is more sensitive)
+
+            // Enable panning: Middle mouse button or Shift + Left mouse button
+            camera.panningSensibility = 500; // Controls panning speed
+            camera.useAutoRotationBehavior = false; // Disable default auto-rotation
+            camera.upperRadiusLimit = 500; // Max zoom out
+            camera.lowerRadiusLimit = 2; // Min zoom in
+
+            // Override default mouse handling for Blender-like orbit/pan
+            // This requires careful handling as Babylon.js default is different.
+            // For Blender: Left-click=Select, Middle-click=Orbit, Shift+Middle-click=Pan, Scroll=Zoom.
+            // Babylon.js ArcRotateCamera defaults: Left-click=Orbit, Middle-click/Right-click=Pan, Scroll=Zoom.
+
+            // Customizing inputs for Blender-like behavior
+            // Remove default Babylon.js mouse wheel for zoom if you want to use custom
+            // camera.inputs.removeByType("ArcRotateCameraMouseWheelInput");
+            // Add custom handlers for middle click pan if needed.
+            // By default, ArcRotateCamera handles middle click for pan, which aligns with Blender's Shift+Middle-Click.
+            // Blender's Middle-click for Orbit is default for ArcRotateCamera's left click.
+            // So, for typical use, ArcRotateCamera's defaults are close.
+            // If you truly need Blender's exact interaction, you'd disable Babylon's default inputs
+            // and implement a custom input manager, listening for mouse events and applying forces.
+            // For this example, we'll rely on the ArcRotateCamera's robust defaults which cover orbit, pan, zoom.
+
+            // --- Lighting ---
+            // Parameters: name, direction, scene
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7; // Adjust light intensity
+
+            // --- Infinite Grid (Blender-like) ---
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 1000, height: 1000 }, scene);
+            const gridMaterial = new BABYLON.GridMaterial("gridMaterial", scene);
+            gridMaterial.majorUnitFrequency = 5; // Major grid lines every 5 units
+            gridMaterial.minorUnitVisibility = 0.4; // Minor grid lines visibility
+            gridMaterial.gridRatio = 1; // Size of a single grid cell
+            gridMaterial.backFaceCulling = false; // Render grid from both sides
+            gridMaterial.mainColor = new BABYLON.Color3(0.05, 0.05, 0.05); // Dark background color
+            gridMaterial.lineColor = new BABYLON.Color3(0.2, 0.2, 0.2); // Grid line color
+            gridMaterial.opacity = 0.9;
+            ground.material = gridMaterial;
+            ground.position.y = -0.01; // Slightly below other objects
+
+            // --- 2000 Cubes ---
+            const numberOfCubes = 2000;
+            const boundingBox = 100; // Cubes will be placed within -50 to 50 on X and Z
+
+            for (let i = 0; i < numberOfCubes; i++) {
+                const box = BABYLON.MeshBuilder.CreateBox("box" + i, { size: 1 }, scene);
+
+                // Random position within a specified range
+                box.position.x = (Math.random() - 0.5) * boundingBox;
+                box.position.y = Math.random() * 5 + 0.5; // Ensure cubes are above ground
+                box.position.z = (Math.random() - 0.5) * boundingBox;
+
+                // Random color for each cube
+                const material = new BABYLON.StandardMaterial("material" + i, scene);
+                material.diffuseColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+                box.material = material;
+            }
+
+            // --- Render Loop ---
+            engine.runRenderLoop(function () {
+                scene.render();
+            });
+
+            // --- Handle Window Resizes ---
+            window.addEventListener("resize", function () {
+                engine.resize();
+            });
+
+            // --- Babylon.js Inspector Shortcut ---
+            window.addEventListener("keydown", function (event) {
+                // Using F9 key to toggle inspector
+                if (event.key === "F9") {
+                    event.preventDefault(); // Prevent default browser behavior (e.g., dev tools for F12)
+                    if (scene.debugLayer.isVisible()) {
+                        scene.debugLayer.hide();
+                    } else {
+                        // Ensure inspector is loaded before showing
+                        if (BABYLON.Inspector) {
+                            scene.debugLayer.show({ embedMode: true }); // Embed inspector in the current window
+                        } else {
+                            showMessageBox("Babylon.js Inspector not loaded. Check CDN link.");
+                        }
+                    }
+                }
+            });
+
+            return scene;
+        };
+
+        // --- Initialize the scene on window load ---
+        window.onload = function () {
+            createScene();
+
+            // Initial resize to ensure canvas fits
+            engine.resize();
+
+            // Optional: Show a message to the user about inspector shortcut
+            showMessageBox("Press F9 to toggle the Babylon.js Inspector for debugging!");
+        };
+    </script>
+</body>
+</html>
