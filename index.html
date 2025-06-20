@@ -15,14 +15,40 @@
             overflow: hidden; /* Prevent scrollbars due to canvas sizing */
             background-color: #1a1a1a; /* Dark background for the app */
         }
-        /* Make the canvas fill the container and be responsive */
+        /* Main container for the 3D scene and Inspector */
+        #app-container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            border-radius: 10px;
+            overflow: hidden; /* Ensures rounded corners apply correctly to children */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+        /* Make the canvas fill its container within the flex layout */
         #renderCanvas {
-            width: 100%;
+            flex-grow: 1; /* Allows canvas to take up available space */
             height: 100%;
             display: block;
             touch-action: none; /* Prevent browser touch gestures on canvas */
             outline: none; /* Remove focus outline */
+            background-color: #000; /* Ensure black background for scene */
         }
+        /* Container for the Babylon.js Inspector */
+        #inspectorHost {
+            width: 0; /* Initially hidden */
+            min-width: 0;
+            max-width: 0;
+            overflow: hidden; /* Hide content when collapsed */
+            transition: width 0.3s ease, min-width 0.3s ease, max-width 0.3s ease;
+            background-color: #222; /* Inspector background */
+            border-left: 1px solid #333; /* Separator line */
+        }
+        #inspectorHost.show {
+            width: 35%; /* Expand to take 35% of the width */
+            min-width: 300px; /* Minimum width for usability */
+            max-width: 500px; /* Maximum width to prevent it from getting too large */
+        }
+
         /* Custom styles for the message box */
         .message-box {
             position: fixed;
@@ -71,8 +97,20 @@
 </head>
 <body class="w-screen h-screen flex flex-col items-center justify-center">
 
-    <!-- Canvas for Babylon.js rendering -->
-    <canvas id="renderCanvas" class="rounded-lg shadow-xl"></canvas>
+    <!-- Main application container with flex layout -->
+    <div id="app-container">
+        <!-- Canvas for Babylon.js rendering -->
+        <canvas id="renderCanvas"></canvas>
+
+        <!-- Container for the Babylon.js Inspector -->
+        <div id="inspectorHost"></div>
+    </div>
+
+    <!-- Simple message box for custom alerts -->
+    <div id="messageBox" class="message-box">
+        <p id="messageContent"></p>
+        <button id="messageCloseButton" class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md transition duration-300">OK</button>
+    </div>
 
     <!-- Simple message box for custom alerts -->
     <div id="messageBox" class="message-box">
@@ -199,20 +237,30 @@
             });
 
             // --- Babylon.js Inspector Shortcut ---
+            const inspectorHost = document.getElementById('inspectorHost');
             window.addEventListener("keydown", function (event) {
                 // Using F9 key to toggle inspector
                 if (event.key === "F9") {
-                    event.preventDefault(); // Prevent default browser behavior (e.g., dev tools for F12)
+                    event.preventDefault(); // Prevent default browser behavior
+
                     if (scene.debugLayer.isVisible()) {
                         scene.debugLayer.hide();
+                        inspectorHost.classList.remove('show'); // Hide the host div
                     } else {
-                        // Ensure inspector is loaded before showing
                         if (BABYLON.Inspector) {
-                            scene.debugLayer.show({ embedMode: true }); // Embed inspector in the current window
+                            // Show inspector, embedding it into the 'inspectorHost' div
+                            scene.debugLayer.show({
+                                embedMode: true,
+                                globalRoot: inspectorHost,
+                                enableClose: false // Prevent inspector's own close button from interfering
+                            });
+                            inspectorHost.classList.add('show'); // Show the host div
                         } else {
                             showMessageBox("Babylon.js Inspector not loaded. Check CDN link.");
                         }
                     }
+                    // Crucial: Resize engine after inspector toggle, as canvas size changes
+                    engine.resize();
                 }
             });
 
