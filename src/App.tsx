@@ -33,121 +33,133 @@ const onSceneReady = (scene: Scene) => {
 };
 
 const createScene = (scene: Scene) => {
-    const canvas = scene.getEngine().getRenderingCanvas();
-    scene.clearColor = new Color4(0.1, 0.1, 0.1, 1);
+  const canvas = scene.getEngine().getRenderingCanvas();
+  scene.clearColor = new Color4(0.1, 0.1, 0.1, 1);
 
-    // --- Camera Setup (ArcRotateCamera for Blender-like controls) ---
-    // Parameters: name, alpha, beta, radius, target, scene
-    const camera = new ArcRotateCamera("camera",
-        Tools.ToRadians(90),    // alpha (rotation around Y-axis)
-        Tools.ToRadians(60),    // beta (rotation around X-axis from pole)
-        50,                             // radius (distance from target)
-        Vector3.Zero(),         // target (point the camera looks at)
-        scene
-    );
-    camera.setTarget(Vector3.Zero()); // Ensure camera looks at origin initially
+  // --- Camera Setup (ArcRotateCamera for Blender-like controls) ---
+  // Parameters: name, alpha, beta, radius, target, scene
+  const camera = new ArcRotateCamera("camera",
+    Tools.ToRadians(90),    // alpha (rotation around Y-axis)
+    Tools.ToRadians(60),    // beta (rotation around X-axis from pole)
+    50,                             // radius (distance from target)
+    Vector3.Zero(),         // target (point the camera looks at)
+    scene
+  );
+  camera.setTarget(Vector3.Zero()); // Ensure camera looks at origin initially
 
-    // Attach camera controls to the canvas
-    camera.attachControl(canvas, true);
+  // Attach camera controls to the canvas
+  camera.attachControl(canvas, true);
 
-    // Configure camera sensitivities for a Blender-like feel
-    camera.angularSensibilityX = 200; // Controls horizontal orbit speed
-    camera.angularSensibilityY = 200; // Controls vertical orbit speed
-    camera.pinchPrecision = 200;      // Controls pinch zoom sensitivity on touch
-    camera.wheelPrecision = 0.5;      // Controls mouse wheel zoom sensitivity (lower is more sensitive)
+  // Configure camera sensitivities for a Blender-like feel
+  camera.angularSensibilityX = 200; // Controls horizontal orbit speed
+  camera.angularSensibilityY = 200; // Controls vertical orbit speed
+  camera.pinchPrecision = 200;      // Controls pinch zoom sensitivity on touch
+  camera.wheelPrecision = 0.5;      // Controls mouse wheel zoom sensitivity (lower is more sensitive)
 
-    // Enable panning: Middle mouse button or Shift + Left mouse button
-    camera.panningSensibility = 500; // Controls panning speed
-    camera.useAutoRotationBehavior = false; // Disable default auto-rotation
-    camera.upperRadiusLimit = 500; // Max zoom out
-    camera.lowerRadiusLimit = 2; // Min zoom in
+  // Enable panning: Middle mouse button or Shift + Left mouse button
+  camera.panningSensibility = 500; // Controls panning speed
+  camera.useAutoRotationBehavior = false; // Disable default auto-rotation
+  camera.upperRadiusLimit = 500; // Max zoom out
+  camera.lowerRadiusLimit = 2; // Min zoom in
 
-    // Override default mouse handling for Blender-like orbit/pan
-    // This requires careful handling as Babylon.js default is different.
-    // For Blender: Left-click=Select, Middle-click=Orbit, Shift+Middle-click=Pan, Scroll=Zoom.
-    // Babylon.js ArcRotateCamera defaults: Left-click=Orbit, Middle-click/Right-click=Pan, Scroll=Zoom.
+  // Override default mouse handling for Blender-like orbit/pan
+  // This requires careful handling as Babylon.js default is different.
+  // For Blender: Left-click=Select, Middle-click=Orbit, Shift+Middle-click=Pan, Scroll=Zoom.
+  // Babylon.js ArcRotateCamera defaults: Left-click=Orbit, Middle-click/Right-click=Pan, Scroll=Zoom.
 
-    // Customizing inputs for Blender-like behavior
-    // Remove default Babylon.js mouse wheel for zoom if you want to use custom
-    // camera.inputs.removeByType("ArcRotateCameraMouseWheelInput");
-    // Add custom handlers for middle click pan if needed.
-    // By default, ArcRotateCamera handles middle click for pan, which aligns with Blender's Shift+Middle-Click.
-    // Blender's Middle-click for Orbit is default for ArcRotateCamera's left click.
-    // So, for typical use, ArcRotateCamera's defaults are close.
-    // If you truly need Blender's exact interaction, you'd disable Babylon's default inputs
-    // and implement a custom input manager, listening for mouse events and applying forces.
-    // For this example, we'll rely on the ArcRotateCamera's robust defaults which cover orbit, pan, zoom.
+  // Customizing inputs for Blender-like behavior
+  // Remove default Babylon.js mouse wheel for zoom if you want to use custom
+  // camera.inputs.removeByType("ArcRotateCameraMouseWheelInput");
+  // Add custom handlers for middle click pan if needed.
+  // By default, ArcRotateCamera handles middle click for pan, which aligns with Blender's Shift+Middle-Click.
+  // Blender's Middle-click for Orbit is default for ArcRotateCamera's left click.
+  // So, for typical use, ArcRotateCamera's defaults are close.
+  // If you truly need Blender's exact interaction, you'd disable Babylon's default inputs
+  // and implement a custom input manager, listening for mouse events and applying forces.
+  // For this example, we'll rely on the ArcRotateCamera's robust defaults which cover orbit, pan, zoom.
 
-    // --- Lighting ---
-    // Parameters: name, direction, scene
-    const light = new HemisphericLight("light", new Vector3(0, 1, 0), scene);
-    light.intensity = 0.7; // Adjust light intensity
+  // --- Lighting ---
+  // Parameters: name, direction, scene
+  const light = new HemisphericLight("light", new Vector3(0, 1, 0), scene);
+  light.intensity = 0.7; // Adjust light intensity
 
-    // --- Infinite Grid (Blender-like) ---
-    const ground = MeshBuilder.CreateGround("ground", { width: 1000, height: 1000 }, scene);
-    const gridMaterial = new GridMaterial("gridMaterial", scene);
-    gridMaterial.majorUnitFrequency = 5; // Major grid lines every 5 units
-    gridMaterial.minorUnitVisibility = 0.4; // Minor grid lines visibility
-    gridMaterial.gridRatio = 1; // Size of a single grid cell
-    gridMaterial.backFaceCulling = false; // Render grid from both sides
-    gridMaterial.mainColor = new Color3(0.05, 0.05, 0.05); // Dark background color
-    gridMaterial.lineColor = new Color3(0.2, 0.2, 0.2); // Grid line color
-    gridMaterial.opacity = 0.9;
-    ground.material = gridMaterial;
-    ground.position.y = -0.01; // Slightly below other objects
+  // --- Infinite Grid (Blender-like) ---
+  const ground = MeshBuilder.CreateGround("ground", { width: 1000, height: 1000 }, scene);
+  const gridMaterial = new GridMaterial("gridMaterial", scene);
+  gridMaterial.majorUnitFrequency = 5; // Major grid lines every 5 units
+  gridMaterial.minorUnitVisibility = 0.4; // Minor grid lines visibility
+  gridMaterial.gridRatio = 1; // Size of a single grid cell
+  gridMaterial.backFaceCulling = false; // Render grid from both sides
+  gridMaterial.mainColor = new Color3(0.05, 0.05, 0.05); // Dark background color
+  gridMaterial.lineColor = new Color3(0.2, 0.2, 0.2); // Grid line color
+  gridMaterial.opacity = 0.9;
+  ground.material = gridMaterial;
+  ground.position.y = -0.01; // Slightly below other objects
 
-    // --- 2000 Cubes ---
-    const numberOfCubes = 2000;
-    const boundingBox = 100; // Cubes will be placed within -50 to 50 on X and Z
+  // --- 2000 Cubes (optimized with instancing) ---
+  const numberOfCubes = 20000;
+  const boundingBox = 100; // Cubes will be placed within -50 to 50 on X and Z
+  
+  // Create a single box mesh as the source
+  const boxSource = MeshBuilder.CreateBox("boxSource", { size: 1 }, scene);
+  boxSource.isVisible = false; // Hide the source mesh
+  
+  // Create instances of the box
+  for (let i = 0; i < numberOfCubes; i++) {
+    // Create an instance of the box
+    // 1) It reduces memory usage by sharing the same geometry data across all instances
+    // 2) It reduces draw calls by batching instances together
+    // 3) It maintains the same visual appearance while being much more GPU-friendly
+    // Instancing is perfect for this scenario where you have many objects with the same geometry,
+    // but different transformations (position, rotation, scaling) and materials.
+    // The GPU can process instances much more efficiently than individual meshes.
+    const boxInstance = boxSource.createInstance("boxInstance" + i);
+    
+    // Random position within a specified range
+    boxInstance.position.x = (Math.random() - 0.5) * boundingBox;
+    boxInstance.position.y = Math.random() * 5 + 0.5; // Ensure cubes are above ground
+    boxInstance.position.z = (Math.random() - 0.5) * boundingBox;
+    
+    // Random color for each instance using the instance's material
+    const material = new StandardMaterial("material" + i, scene);
+    material.diffuseColor = new Color3(Math.random(), Math.random(), Math.random());
+    boxInstance.material = material;
+  }
 
-    for (let i = 0; i < numberOfCubes; i++) {
-        const box = MeshBuilder.CreateBox("box" + i, { size: 1 }, scene);
+  // --- Render Loop ---
+  // engine.runRenderLoop(function () {
+  //     scene.render();
+  // });
 
-        // Random position within a specified range
-        box.position.x = (Math.random() - 0.5) * boundingBox;
-        box.position.y = Math.random() * 5 + 0.5; // Ensure cubes are above ground
-        box.position.z = (Math.random() - 0.5) * boundingBox;
+  // --- Babylon.js Inspector Shortcut ---
+  // const inspectorHost = document.getElementById('inspectorHost');
+  // window.addEventListener("keydown", function (event) {
+  //     // Using F9 key to toggle inspector
+  //     if (event.key === "F9") {
+  //         event.preventDefault(); // Prevent default browser behavior
 
-        // Random color for each cube
-        const material = new StandardMaterial("material" + i, scene);
-        material.diffuseColor = new Color3(Math.random(), Math.random(), Math.random());
-        box.material = material;
-    }
+  //         if (scene.debugLayer.isVisible()) {
+  //             scene.debugLayer.hide();
+  //             inspectorHost.classList.remove('show'); // Hide the host div
+  //         } else {
+  //             if (BABYLON.Inspector) {
+  //                 // Show inspector, embedding it into the 'inspectorHost' div
+  //                 scene.debugLayer.show({
+  //                     embedMode: true,
+  //                     globalRoot: inspectorHost,
+  //                     enableClose: false // Prevent inspector's own close button from interfering
+  //                 });
+  //                 inspectorHost.classList.add('show'); // Show the host div
+  //             } else {
+  //                 showMessageBox("Babylon.js Inspector not loaded. Check CDN link.");
+  //             }
+  //         }
+  //         // Crucial: Resize engine after inspector toggle, as canvas size changes
+  //         engine.resize();
+  //     }
+  // });
 
-    // --- Render Loop ---
-    // engine.runRenderLoop(function () {
-    //     scene.render();
-    // });
-
-    // --- Babylon.js Inspector Shortcut ---
-    // const inspectorHost = document.getElementById('inspectorHost');
-    // window.addEventListener("keydown", function (event) {
-    //     // Using F9 key to toggle inspector
-    //     if (event.key === "F9") {
-    //         event.preventDefault(); // Prevent default browser behavior
-
-    //         if (scene.debugLayer.isVisible()) {
-    //             scene.debugLayer.hide();
-    //             inspectorHost.classList.remove('show'); // Hide the host div
-    //         } else {
-    //             if (BABYLON.Inspector) {
-    //                 // Show inspector, embedding it into the 'inspectorHost' div
-    //                 scene.debugLayer.show({
-    //                     embedMode: true,
-    //                     globalRoot: inspectorHost,
-    //                     enableClose: false // Prevent inspector's own close button from interfering
-    //                 });
-    //                 inspectorHost.classList.add('show'); // Show the host div
-    //             } else {
-    //                 showMessageBox("Babylon.js Inspector not loaded. Check CDN link.");
-    //             }
-    //         }
-    //         // Crucial: Resize engine after inspector toggle, as canvas size changes
-    //         engine.resize();
-    //     }
-    // });
-
-    return scene;
+  return scene;
 };
 
 /**
