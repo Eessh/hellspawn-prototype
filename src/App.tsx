@@ -62,16 +62,26 @@ const createScene = (scene: Scene) => {
   camera.upperRadiusLimit = 500; // Max zoom out
   camera.lowerRadiusLimit = 2; // Min zoom in
 
-  // --- WASD Controls ---
+  // --- WASD & Arrow Key Controls ---
   // We'll move the camera's target and position in the render loop based on key state
   const keyState: Record<string, boolean> = {};
   const moveSpeed = 1.0;
+  const verticalSpeed = 0.0005;
+  const rotateSpeed = 0.04; // radians per frame
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    keyState[e.key.toLowerCase()] = true;
+    if (e.key.length === 1) {
+      keyState[e.key.toLowerCase()] = true;
+    } else {
+      keyState[e.key] = true;
+    }
   };
   const handleKeyUp = (e: KeyboardEvent) => {
-    keyState[e.key.toLowerCase()] = false;
+    if (e.key.length === 1) {
+      keyState[e.key.toLowerCase()] = false;
+    } else {
+      keyState[e.key] = false;
+    }
   };
   window.addEventListener('keydown', handleKeyDown);
   window.addEventListener('keyup', handleKeyUp);
@@ -84,31 +94,36 @@ const createScene = (scene: Scene) => {
 
   // Move camera in the render loop
   scene.onBeforeRenderObservable.add(() => {
-    // Calculate forward and right vectors based on camera alpha
-    const forward = new Vector3(
-      // Math.sin(camera.alpha),
-      Math.sin(camera.alpha + Math.PI/2),
-      0,
-      // Math.cos(camera.alpha)
-      Math.cos(camera.alpha + Math.PI/2)
-    ).normalize();
-    const right = new Vector3(
-      // Math.sin(camera.alpha + Math.PI/2),
-      Math.sin(camera.alpha),
-      0,
-      // Math.cos(camera.alpha + Math.PI/2)
-      Math.cos(camera.alpha)
-    ).normalize();
 
-    let move = Vector3.Zero();
-    if (keyState['w']) move = move.add(forward.scale(moveSpeed));
-    if (keyState['s']) move = move.subtract(forward.scale(moveSpeed));
-    if (keyState['a']) move = move.add(right.scale(moveSpeed));
-    if (keyState['d']) move = move.subtract(right.scale(moveSpeed));
+  // Calculate forward and right vectors based on camera's actual facing direction
+  let forward = camera.target.subtract(camera.position);
+  forward.y = 0;
+  forward = forward.normalize();
+  let right = Vector3.Cross(Vector3.Up(), forward).normalize();
+
+  let move = Vector3.Zero();
+  if (keyState['w']) move = move.add(forward.scale(moveSpeed));
+  if (keyState['s']) move = move.subtract(forward.scale(moveSpeed));
+  if (keyState['a']) move = move.subtract(right.scale(moveSpeed));
+  if (keyState['d']) move = move.add(right.scale(moveSpeed));
 
     if (!move.equals(Vector3.Zero())) {
       camera.target.addInPlace(move);
       camera.position.addInPlace(move);
+    }
+
+    // Arrow Left/Right: rotate camera view
+    if (keyState['ArrowUp']) {
+      camera.beta -= verticalSpeed;
+    }
+    if (keyState['ArrowDown']) {
+      camera.beta += verticalSpeed;
+    }
+    if (keyState['ArrowLeft']) {
+      camera.alpha -= rotateSpeed;
+    }
+    if (keyState['ArrowRight']) {
+      camera.alpha += rotateSpeed;
     }
   });
 
@@ -131,7 +146,7 @@ const createScene = (scene: Scene) => {
   ground.position.y = -0.01; // Slightly below other objects
 
   // --- 2000 Cubes (optimized with instancing) ---
-  const numberOfCubes = 20000;
+  const numberOfCubes = 200;
   const boundingBox = 100; // Cubes will be placed within -50 to 50 on X and Z
   
   // Create a single box mesh as the source
