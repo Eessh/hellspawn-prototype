@@ -54,7 +54,7 @@ const createScene = (scene: Scene) => {
   camera.angularSensibilityX = 200; // Controls horizontal orbit speed
   camera.angularSensibilityY = 200; // Controls vertical orbit speed
   camera.pinchPrecision = 200;      // Controls pinch zoom sensitivity on touch
-  camera.wheelPrecision = 0.5;      // Controls mouse wheel zoom sensitivity (lower is more sensitive)
+  camera.wheelPrecision = 1.3;      // Controls mouse wheel zoom sensitivity (lower is more sensitive)
 
   // Enable panning: Middle mouse button or Shift + Left mouse button
   camera.panningSensibility = 500; // Controls panning speed
@@ -62,21 +62,55 @@ const createScene = (scene: Scene) => {
   camera.upperRadiusLimit = 500; // Max zoom out
   camera.lowerRadiusLimit = 2; // Min zoom in
 
-  // Override default mouse handling for Blender-like orbit/pan
-  // This requires careful handling as Babylon.js default is different.
-  // For Blender: Left-click=Select, Middle-click=Orbit, Shift+Middle-click=Pan, Scroll=Zoom.
-  // Babylon.js ArcRotateCamera defaults: Left-click=Orbit, Middle-click/Right-click=Pan, Scroll=Zoom.
+  // --- WASD Controls ---
+  // We'll move the camera's target and position in the render loop based on key state
+  const keyState: Record<string, boolean> = {};
+  const moveSpeed = 1.0;
 
-  // Customizing inputs for Blender-like behavior
-  // Remove default Babylon.js mouse wheel for zoom if you want to use custom
-  // camera.inputs.removeByType("ArcRotateCameraMouseWheelInput");
-  // Add custom handlers for middle click pan if needed.
-  // By default, ArcRotateCamera handles middle click for pan, which aligns with Blender's Shift+Middle-Click.
-  // Blender's Middle-click for Orbit is default for ArcRotateCamera's left click.
-  // So, for typical use, ArcRotateCamera's defaults are close.
-  // If you truly need Blender's exact interaction, you'd disable Babylon's default inputs
-  // and implement a custom input manager, listening for mouse events and applying forces.
-  // For this example, we'll rely on the ArcRotateCamera's robust defaults which cover orbit, pan, zoom.
+  const handleKeyDown = (e: KeyboardEvent) => {
+    keyState[e.key.toLowerCase()] = true;
+  };
+  const handleKeyUp = (e: KeyboardEvent) => {
+    keyState[e.key.toLowerCase()] = false;
+  };
+  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keyup', handleKeyUp);
+
+  // Remove listeners on scene dispose
+  scene.onDisposeObservable.add(() => {
+    window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('keyup', handleKeyUp);
+  });
+
+  // Move camera in the render loop
+  scene.onBeforeRenderObservable.add(() => {
+    // Calculate forward and right vectors based on camera alpha
+    const forward = new Vector3(
+      // Math.sin(camera.alpha),
+      Math.sin(camera.alpha + Math.PI/2),
+      0,
+      // Math.cos(camera.alpha)
+      Math.cos(camera.alpha + Math.PI/2)
+    ).normalize();
+    const right = new Vector3(
+      // Math.sin(camera.alpha + Math.PI/2),
+      Math.sin(camera.alpha),
+      0,
+      // Math.cos(camera.alpha + Math.PI/2)
+      Math.cos(camera.alpha)
+    ).normalize();
+
+    let move = Vector3.Zero();
+    if (keyState['w']) move = move.add(forward.scale(moveSpeed));
+    if (keyState['s']) move = move.subtract(forward.scale(moveSpeed));
+    if (keyState['a']) move = move.add(right.scale(moveSpeed));
+    if (keyState['d']) move = move.subtract(right.scale(moveSpeed));
+
+    if (!move.equals(Vector3.Zero())) {
+      camera.target.addInPlace(move);
+      camera.position.addInPlace(move);
+    }
+  });
 
   // --- Lighting ---
   // Parameters: name, direction, scene
