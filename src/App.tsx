@@ -51,10 +51,11 @@ const createScene = (scene: Scene) => {
   camera.attachControl(canvas, true);
 
   // Configure camera sensitivities for a Blender-like feel
-  camera.angularSensibilityX = 300; // Controls horizontal orbit speed
+  camera.angularSensibilityX = 200; // Controls horizontal orbit speed
   camera.angularSensibilityY = 400; // Controls vertical orbit speed
   camera.pinchPrecision = 0.5;      // Controls pinch zoom sensitivity on touch
   camera.wheelPrecision = 1.3;      // Controls mouse wheel zoom sensitivity (lower is more sensitive)
+  camera.inertia = 0.5; // Controls inertia for horizontal rotation
 
   // Enable panning: Middle mouse button or Shift + Left mouse button
   camera.panningSensibility = 200; // Controls panning speed
@@ -62,12 +63,19 @@ const createScene = (scene: Scene) => {
   camera.upperRadiusLimit = 500; // Max zoom out
   camera.lowerRadiusLimit = 2; // Min zoom in
 
+  camera.inputs.clear(); // Clear default inputs
+
+  camera.keysLeft = [37]; // Left arrow key
+  camera.keysRight = [39]; // Right arrow key
+  camera.keysUp = [38]; // Up arrow key
+  camera.keysDown = [40]; // Down arrow key
+
   // --- WASD & Arrow Key Controls ---
   // We'll move the camera's target and position in the render loop based on key state
   const keyState: Record<string, boolean> = {};
   const moveSpeed = 1.0;
-  const verticalSpeed = 0.00005;
-  const rotateSpeed = 0.005; // radians per frame
+  const verticalSpeed = 0.01;
+  const rotateSpeed = 0.025; // radians per frame
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key.length === 1) {
@@ -112,7 +120,7 @@ const createScene = (scene: Scene) => {
       camera.position.addInPlace(move);
     }
 
-    // Arrow Left/Right: rotate camera view
+  //   // Arrow Left/Right: rotate camera view
     if (keyState['ArrowUp']) {
       camera.beta -= verticalSpeed;
     }
