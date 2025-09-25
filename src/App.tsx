@@ -63,7 +63,7 @@ const createScene = (scene: Scene) => {
   camera.upperRadiusLimit = 500; // Max zoom out
   camera.lowerRadiusLimit = 2; // Min zoom in
 
-  camera.inputs.clear(); // Clear default inputs
+  // camera.inputs.clear(); // Clear default inputs
 
   camera.keysLeft = [37]; // Left arrow key
   camera.keysRight = [39]; // Right arrow key
@@ -102,18 +102,17 @@ const createScene = (scene: Scene) => {
 
   // Move camera in the render loop
   scene.onBeforeRenderObservable.add(() => {
+    // Calculate forward and right vectors based on camera's actual facing direction
+    let forward = camera.target.subtract(camera.position);
+    forward.y = 0;
+    forward = forward.normalize();
+    let right = Vector3.Cross(Vector3.Up(), forward).normalize();
 
-  // Calculate forward and right vectors based on camera's actual facing direction
-  let forward = camera.target.subtract(camera.position);
-  forward.y = 0;
-  forward = forward.normalize();
-  let right = Vector3.Cross(Vector3.Up(), forward).normalize();
-
-  let move = Vector3.Zero();
-  if (keyState['w']) move = move.add(forward.scale(moveSpeed));
-  if (keyState['s']) move = move.subtract(forward.scale(moveSpeed));
-  if (keyState['a']) move = move.subtract(right.scale(moveSpeed));
-  if (keyState['d']) move = move.add(right.scale(moveSpeed));
+    let move = Vector3.Zero();
+    if (keyState['w']) move = move.add(forward.scale(moveSpeed));
+    if (keyState['s']) move = move.subtract(forward.scale(moveSpeed));
+    if (keyState['a']) move = move.subtract(right.scale(moveSpeed));
+    if (keyState['d']) move = move.add(right.scale(moveSpeed));
 
     if (!move.equals(Vector3.Zero())) {
       camera.target.addInPlace(move);
