@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+      - "15674:15674"  # Web STOMP (WebSocket)
+      - "15675:15675"  # Web STOMP over TLS (WSS)
+    environment:
+      - RABBITMQ_PLUGINS=rabbitmq_web_stomp,rabbitmq_management
+      - RABBITMQ_SSL_CERTFILE=/certs/cert.pem
+      - RABBITMQ_SSL_KEYFILE=/certs/key.pem
+      - RABBITMQ_SSL_CACERTFILE=/certs/ca.pem
+      - RABBITMQ_WEB_STOMP_SSL_PORT=15675
+      - RABBITMQ_WEB_STOMP_MAX_FRAME_SIZE=65536  # 64KB, adjust as needed
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./certs:/certs:ro
+    command: >
+      bash -c "
+        rabbitmq-plugins enable --offline rabbitmq_web_stomp rabbitmq_management &&
+        rabbitmq-server"
+
+volumes:
+  rabbitmq-data:./persistence/rabbitmq
