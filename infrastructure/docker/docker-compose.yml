@@ -22,6 +22,16 @@ services:
       bash -c "
         rabbitmq-plugins enable --offline rabbitmq_web_stomp rabbitmq_management &&
         rabbitmq-server"
+  
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    image: hellspawn-backend:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - rabbitmq
 
 volumes:
   rabbitmq-data:./persistence/rabbitmq
