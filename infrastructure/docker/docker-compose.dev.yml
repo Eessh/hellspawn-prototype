@@ -32,6 +32,8 @@ services:
       - "3000:3000"
     depends_on:
       - rabbitmq
+    volumes:
+      - backend-hotreload:/app
   
   frontend:
     build:
@@ -42,6 +44,10 @@ services:
       - "80:80"
     depends_on:
       - backend
+    volumes:
+      - frontend-hotreload:/app
 
 volumes:
-  rabbitmq-data:./persistence/rabbitmq
+  - rabbitmq-data:./persistence/rabbitmq
+  - backend-hotreload:../../backend
+  - frontend-hotreload:../../frontend
