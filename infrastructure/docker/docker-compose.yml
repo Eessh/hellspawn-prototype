@@ -32,6 +32,8 @@ services:
       - "3000:3000"
     depends_on:
       - rabbitmq
+    volumes:
+      - backend-data:/app_storage
   
   frontend:
     build:
@@ -42,6 +44,8 @@ services:
       - "80:80"
     depends_on:
       - backend
+      - rabbitmq
 
 volumes:
   rabbitmq-data:./persistence/rabbitmq
+  backend-data:./persistence/backend

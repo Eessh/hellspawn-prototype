@@ -34,6 +34,7 @@ services:
       - rabbitmq
     volumes:
       - backend-hotreload:/app
+      - backend-data:/app_storage
   
   frontend:
     build:
@@ -41,13 +42,15 @@ services:
       dockerfile: Dockerfile.dev
     image: hellspawn-frontend-dev:latest
     ports:
-      - "80:80"
+      - "5173:5173"
     depends_on:
       - backend
+      - rabbitmq
     volumes:
       - frontend-hotreload:/app
 
 volumes:
   - rabbitmq-data:./persistence/rabbitmq
+  - backend-data:./persistence/backend
   - backend-hotreload:../../backend
   - frontend-hotreload:../../frontend
