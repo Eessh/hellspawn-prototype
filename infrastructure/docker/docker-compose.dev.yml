@@ -29,7 +29,7 @@ services:
       dockerfile: Dockerfile.dev
     image: hellspawn-backend-dev:latest
     ports:
-      - "3000:3000"
+      - "4000:4000"
     depends_on:
       - rabbitmq
     volumes:
@@ -43,7 +43,7 @@ services:
       dockerfile: Dockerfile.dev
     image: hellspawn-frontend-dev:latest
     ports:
-      - "5173:5173"
+      - "3000:3000"
     depends_on:
       - backend
       - rabbitmq

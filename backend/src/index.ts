@@ -1,19 +1,19 @@
-import Fastify from 'fastify';
+import fastify from "fastify";
 
-const fastify = Fastify({
+const server = fastify({
     logger: true // Enable logger for better development experience
 });
 
-fastify.get('/', async (request, reply) => {
+server.get('/', async (_, __) => {
     return { hello: 'world' };
 });
 
 const start = async () => {
     try {
-        await fastify.listen({ port: 3000 });
-        console.log('Server listening on http://localhost:3000');
+        await server.listen({ port: 4000 });
+        console.log('Server listening on http://localhost:4000');
     } catch (err) {
-        fastify.log.error(err);
+        server.log.error(err);
         process.exit(1);
     }
 };
