@@ -12,9 +12,9 @@ services:
       - RABBITMQ_DEFAULT_USER=admin
       - RABBITMQ_DEFAULT_PASS=admin
       - RABBITMQ_PLUGINS=rabbitmq_web_stomp,rabbitmq_management
-      - RABBITMQ_SSL_CERTFILE=/certs/cert.pem
-      - RABBITMQ_SSL_KEYFILE=/certs/key.pem
-      - RABBITMQ_SSL_CACERTFILE=/certs/ca.pem
+      # - RABBITMQ_SSL_CERTFILE=/certs/cert.pem
+      # - RABBITMQ_SSL_KEYFILE=/certs/key.pem
+      # - RABBITMQ_SSL_CACERTFILE=/certs/ca.pem
       - RABBITMQ_WEB_STOMP_SSL_PORT=15675
       - RABBITMQ_WEB_STOMP_MAX_FRAME_SIZE=65536  # 64KB, adjust as needed
     volumes:
