@@ -10,9 +10,9 @@ services:
       - RABBITMQ_DEFAULT_USER=admin
       - RABBITMQ_DEFAULT_PASS=admin
       - RABBITMQ_PLUGINS=rabbitmq_web_stomp,rabbitmq_management
-      # - RABBITMQ_SSL_CERTFILE=/certs/cert.pem
-      # - RABBITMQ_SSL_KEYFILE=/certs/key.pem
-      # - RABBITMQ_SSL_CACERTFILE=/certs/ca.pem
+      - RABBITMQ_SERVER_SSL_CERTFILE=/certs/cert.pem
+      - RABBITMQ_SERVER_SSL_KEYFILE=/certs/key.pem
+      - RABBITMQ_SERVER_SSL_CACERTFILE=/certs/ca.pem
       - RABBITMQ_WEB_STOMP_SSL_PORT=15675
       - RABBITMQ_WEB_STOMP_MAX_FRAME_SIZE=65536  # 64KB, adjust as needed
     volumes:
@@ -33,7 +33,7 @@ services:
     depends_on:
       - rabbitmq
     volumes:
-      - backend_hotreload:/app
+      - backend_hotreload:/app/src
       - backend_data:/app_storage
   
   frontend:
@@ -47,7 +47,7 @@ services:
       - backend
       - rabbitmq
     volumes:
-      - frontend_hotreload:/app
+      - frontend_hotreload:/app/src
 
 volumes:
   rabbitmq_data:
@@ -66,11 +66,11 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: ../../backend
+      device: ../../backend/src
       o: bind
   frontend_hotreload:
     driver: local
     driver_opts:
       type: none
-      device: ../../frontend
+      device: ../../frontend/src
       o: bind
