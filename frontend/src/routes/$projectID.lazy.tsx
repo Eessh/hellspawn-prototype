@@ -1,49 +1,27 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { ArcRotateCamera, Color3, Color4, FreeCamera, HemisphericLight, Mesh, MeshBuilder, Scene, Tools, Vector3, StandardMaterial } from '@babylonjs/core';
-import SceneView from '../components/Scene';
+import { createLazyFileRoute } from '@tanstack/react-router';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { ArcRotateCamera, Color3, Color4, FreeCamera, HemisphericLight, Mesh, MeshBuilder, Scene, Tools, Vector3, StandardMaterial, Engine } from '@babylonjs/core';
 import { GridMaterial } from '@babylonjs/materials';
+import { useEffect, useRef } from 'react';
+import Viewport from '@/components/Viewport';
 
-export const Route = createFileRoute('/')({
-  component: App,
+export const Route = createLazyFileRoute('/$projectID')({
+  component: RouteComponent,
 });
 
 let box: Mesh;
 
-const onSceneReady = (scene: Scene) => {
-  // This creates and positions a free camera (non-mesh)
-  const camera = new FreeCamera("camera1", new Vector3(0, 5, -10), scene);
-
-  // This targets the camera to scene origin
-  camera.setTarget(Vector3.Zero());
-
-  const canvas = scene.getEngine().getRenderingCanvas();
-
-  // This attaches the camera to the canvas
-  camera.attachControl(canvas, true);
-
-  // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
-  const light = new HemisphericLight("light", new Vector3(0, 1, 0), scene);
-
-  // Default intensity is 1. Let's dim the light a small amount
-  light.intensity = 0.7;
-
-  // Our built-in 'box' shape.
-  box = MeshBuilder.CreateBox("box", { size: 2 }, scene);
-
-  // Move the box upward 1/2 its height
-  box.position.y = 1;
-
-  // Our built-in 'ground' shape.
-  MeshBuilder.CreateGround("ground", { width: 6, height: 6 }, scene);
-};
-
-const createScene = (scene: Scene) => {
+const initScene = (scene: Scene, camera: ArcRotateCamera) => {
   const canvas = scene.getEngine().getRenderingCanvas();
   scene.clearColor = new Color4(0.1, 0.1, 0.1, 1);
 
   // --- Camera Setup (ArcRotateCamera for Blender-like controls) ---
   // Parameters: name, alpha, beta, radius, target, scene
-  const camera = new ArcRotateCamera("camera",
+  camera = new ArcRotateCamera("camera",
     Tools.ToRadians(90),    // alpha (rotation around Y-axis)
     Tools.ToRadians(60),    // beta (rotation around X-axis from pole)
     50,                             // radius (distance from target)
@@ -158,7 +136,7 @@ const createScene = (scene: Scene) => {
   ground.position.y = -0.01; // Slightly below other objects
 
   // --- 2000 Cubes (optimized with instancing) ---
-  const numberOfCubes = 200;
+  const numberOfCubes = 2000;
   const boundingBox = 100; // Cubes will be placed within -50 to 50 on X and Z
   
   // Create a single box mesh as the source
@@ -235,9 +213,62 @@ const onRender = (scene: Scene) => {
   }
 };
 
-function App() {
+function RouteComponent() {
+  const engineRef = useRef<Engine>(null);
+  const sceneRef = useRef<Scene>(null);
+  const cameraRef = useRef<ArcRotateCamera>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) {
+      console.error("Canvas not found");
+      return;
+    }
+
+    engineRef.current = new Engine(canvasRef.current, true, {preserveDrawingBuffer: true, stencil: true}, true);
+    sceneRef.current = new Scene(engineRef.current, {});
+
+    if (sceneRef.current.isReady()) {
+      initScene(sceneRef.current, cameraRef.current!);
+    }
+    else {
+      sceneRef.current.onReadyObservable.addOnce(scene => initScene(scene, cameraRef.current!));
+    }
+
+    engineRef.current.runRenderLoop(() => {
+      onRender(sceneRef.current!);
+
+      sceneRef.current!.render();
+    });
+
+    return () => {
+      sceneRef.current!.getEngine().dispose();
+    };
+  });
+
+  const resizeHandler = () => {
+    if (!sceneRef.current) {
+      return;
+    }
+
+    sceneRef.current.getEngine().resize();
+  }
+
   return (
-    // <SceneView antialias={true} adaptToDeviceRatio={true} engineOptions={{preserveDrawingBuffer: true, stencil: true}} sceneOptions={{}} onSceneReady={createScene} onRender={onRender}/>
-    <p>Projects view</p>
-  )
+    <ResizablePanelGroup direction="horizontal">
+      <ResizablePanel>Scene Tree</ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel onResize={resizeHandler}>
+        <ResizablePanelGroup direction="vertical">
+          <ResizablePanel style={{ position: "relative" }} onResize={resizeHandler}>
+            <Viewport canvasRef={canvasRef} />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel>Console</ResizablePanel>
+        </ResizablePanelGroup>
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel>Properties</ResizablePanel>
+    </ResizablePanelGroup>
+  );
 }

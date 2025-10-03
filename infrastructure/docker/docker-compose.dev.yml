@@ -33,7 +33,7 @@ services:
     depends_on:
       - rabbitmq
     volumes:
-      - backend_hotreload:/app/src
+      - ../../backend/src:/app/src
       - backend_data:/app_storage
   
   frontend:
@@ -47,7 +47,7 @@ services:
       - backend
       - rabbitmq
     volumes:
-      - frontend_hotreload:/app/src
+      - ../../frontend/src:/app/src
 
 volumes:
   rabbitmq_data:
@@ -62,15 +62,15 @@ volumes:
       type: none
       device: ../../persistence/backend
       o: bind
-  backend_hotreload:
-    driver: local
-    driver_opts:
-      type: none
-      device: ../../backend/src
-      o: bind
-  frontend_hotreload:
-    driver: local
-    driver_opts:
-      type: none
-      device: ../../frontend/src
-      o: bind
+  # backend_hotreload:
+  #   driver: local
+  #   driver_opts:
+  #     type: none
+  #     device: ../../backend/src
+  #     o: bind
+  # frontend_hotreload:
+  #   driver: local
+  #   driver_opts:
+  #     type: none
+  #     device: ../../frontend/src
+  #     o: bind
