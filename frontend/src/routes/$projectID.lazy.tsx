@@ -8,12 +8,16 @@ import { ArcRotateCamera, Color3, Color4, FreeCamera, HemisphericLight, Mesh, Me
 import { GridMaterial } from '@babylonjs/materials';
 import { useEffect, useRef } from 'react';
 import Viewport from '@/components/Viewport';
+import { debounce } from '@/lib/utils';
 
 export const Route = createLazyFileRoute('/$projectID')({
   component: RouteComponent,
 });
 
 let box: Mesh;
+// --- 2000 Cubes (optimized with instancing) ---
+const CUBE_COUNT = 2000;
+const CUBES_BOUNDING_BOX_SIZE = 100; // Cubes will be placed within -50 to 50 on X and Z
 
 const initScene = (scene: Scene, camera: ArcRotateCamera) => {
   const canvas = scene.getEngine().getRenderingCanvas();
@@ -134,17 +138,13 @@ const initScene = (scene: Scene, camera: ArcRotateCamera) => {
   gridMaterial.opacity = 0.9;
   ground.material = gridMaterial;
   ground.position.y = -0.01; // Slightly below other objects
-
-  // --- 2000 Cubes (optimized with instancing) ---
-  const numberOfCubes = 2000;
-  const boundingBox = 100; // Cubes will be placed within -50 to 50 on X and Z
   
   // Create a single box mesh as the source
   const boxSource = MeshBuilder.CreateBox("boxSource", { size: 1 }, scene);
   boxSource.isVisible = false; // Hide the source mesh
   
   // Create instances of the box
-  for (let i = 0; i < numberOfCubes; i++) {
+  for (let i = 0; i < CUBE_COUNT; i++) {
     // Create an instance of the box
     // 1) It reduces memory usage by sharing the same geometry data across all instances
     // 2) It reduces draw calls by batching instances together
@@ -155,9 +155,9 @@ const initScene = (scene: Scene, camera: ArcRotateCamera) => {
     const boxInstance = boxSource.createInstance("boxInstance" + i);
     
     // Random position within a specified range
-    boxInstance.position.x = (Math.random() - 0.5) * boundingBox;
+    boxInstance.position.x = (Math.random() - 0.5) * CUBES_BOUNDING_BOX_SIZE;
     boxInstance.position.y = Math.random() * 5 + 0.5; // Ensure cubes are above ground
-    boxInstance.position.z = (Math.random() - 0.5) * boundingBox;
+    boxInstance.position.z = (Math.random() - 0.5) * CUBES_BOUNDING_BOX_SIZE;
     
     // Random color for each instance using the instance's material
     const material = new StandardMaterial("material" + i, scene);
@@ -208,8 +208,12 @@ const onRender = (scene: Scene) => {
   if (box !== undefined) {
     const deltaTimeInMillis = scene.getEngine().getDeltaTime();
 
-    const rpm = 10;
-    box.rotation.y += (rpm / 60) * Math.PI * 2 * (deltaTimeInMillis / 1000);
+    for (let i = 0; i < CUBE_COUNT; i++) {
+      scene.getTransformNodeByName("boxInstance" + i)?.rotate(Vector3.Up(), (10 / 60) * Math.PI * 2 * (deltaTimeInMillis / 1000));
+    }
+
+    // const rpm = 10;
+    // box.rotation.y += (rpm / 60) * Math.PI * 2 * (deltaTimeInMillis / 1000);
   }
 };
 
@@ -218,6 +222,27 @@ function RouteComponent() {
   const sceneRef = useRef<Scene>(null);
   const cameraRef = useRef<ArcRotateCamera>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const resizeHandler = () => {
+    if (!sceneRef.current) {
+      return;
+    }
+
+    sceneRef.current.getEngine().resize();
+  }
+
+  /**
+   * Debounced (500ms) resize handler.
+   * 
+   * Using debouncing totally avoid engine's resize during window resizing.
+   * 
+   * Using throttling still causes multiple engine resize calls during window resizing,
+   * just at a limited rate.  But we don't want any resize calls until user has finished
+   * resizing the window.
+   * 
+   * So debouncing is the perfect fit here.
+   */
+  const debouncedResizeHandler = debounce(resizeHandler, 500);
 
   useEffect(() => {
     if (!canvasRef.current) {
@@ -241,33 +266,29 @@ function RouteComponent() {
       sceneRef.current!.render();
     });
 
+    // Resize the engine on window resize
+    window.addEventListener('resize', debouncedResizeHandler);
+
     return () => {
+      window.removeEventListener('resize', debouncedResizeHandler);
       sceneRef.current!.getEngine().dispose();
     };
-  });
-
-  const resizeHandler = () => {
-    if (!sceneRef.current) {
-      return;
-    }
-
-    sceneRef.current.getEngine().resize();
-  }
+  }, []);
 
   return (
     <ResizablePanelGroup direction="horizontal">
       <ResizablePanel>Scene Tree</ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel onResize={resizeHandler}>
+      <ResizableHandle />
+      <ResizablePanel onResize={debouncedResizeHandler}>
         <ResizablePanelGroup direction="vertical">
-          <ResizablePanel style={{ position: "relative" }} onResize={resizeHandler}>
+          <ResizablePanel style={{ position: "relative" }} onResize={debouncedResizeHandler}>
             <Viewport canvasRef={canvasRef} />
           </ResizablePanel>
-          <ResizableHandle withHandle />
+          <ResizableHandle />
           <ResizablePanel>Console</ResizablePanel>
         </ResizablePanelGroup>
       </ResizablePanel>
-      <ResizableHandle withHandle />
+      <ResizableHandle />
       <ResizablePanel>Properties</ResizablePanel>
     </ResizablePanelGroup>
   );
