@@ -23,39 +23,8 @@ const initScene = (scene: Scene, camera: ArcRotateCamera) => {
   const canvas = scene.getEngine().getRenderingCanvas();
   scene.clearColor = new Color4(0.1, 0.1, 0.1, 1);
 
-  // --- Camera Setup (ArcRotateCamera for Blender-like controls) ---
-  // Parameters: name, alpha, beta, radius, target, scene
-  camera = new ArcRotateCamera("camera",
-    Tools.ToRadians(90),    // alpha (rotation around Y-axis)
-    Tools.ToRadians(60),    // beta (rotation around X-axis from pole)
-    50,                             // radius (distance from target)
-    Vector3.Zero(),         // target (point the camera looks at)
-    scene
-  );
-  camera.setTarget(Vector3.Zero()); // Ensure camera looks at origin initially
-
   // Attach camera controls to the canvas
   camera.attachControl(canvas, true);
-
-  // Configure camera sensitivities for a Blender-like feel
-  camera.angularSensibilityX = 200; // Controls horizontal orbit speed
-  camera.angularSensibilityY = 400; // Controls vertical orbit speed
-  camera.pinchPrecision = 0.5;      // Controls pinch zoom sensitivity on touch
-  camera.wheelPrecision = 1.3;      // Controls mouse wheel zoom sensitivity (lower is more sensitive)
-  camera.inertia = 0.5; // Controls inertia for horizontal rotation
-
-  // Enable panning: Middle mouse button or Shift + Left mouse button
-  camera.panningSensibility = 200; // Controls panning speed
-  camera.useAutoRotationBehavior = false; // Disable default auto-rotation
-  camera.upperRadiusLimit = 500; // Max zoom out
-  camera.lowerRadiusLimit = 2; // Min zoom in
-
-  // camera.inputs.clear(); // Clear default inputs
-
-  camera.keysLeft = [37]; // Left arrow key
-  camera.keysRight = [39]; // Right arrow key
-  camera.keysUp = [38]; // Up arrow key
-  camera.keysDown = [40]; // Down arrow key
 
   // --- WASD & Arrow Key Controls ---
   // We'll move the camera's target and position in the render loop based on key state
@@ -201,6 +170,32 @@ const initScene = (scene: Scene, camera: ArcRotateCamera) => {
   return scene;
 };
 
+const initCamera = (camera: ArcRotateCamera) => {
+  camera.setTarget(Vector3.Zero());
+
+  // Configure camera sensitivities for a Blender-like feel
+  camera.angularSensibilityX = 200; // Controls horizontal orbit speed
+  camera.angularSensibilityY = 400; // Controls vertical orbit speed
+  camera.pinchPrecision = 0.5;      // Controls pinch zoom sensitivity on touch
+  camera.wheelPrecision = 1.3;      // Controls mouse wheel zoom sensitivity (lower is more sensitive)
+  camera.inertia = 0.5; // Controls inertia for horizontal rotation
+
+  // Enable panning: Middle mouse button or Shift + Left mouse button
+  camera.panningSensibility = 200; // Controls panning speed
+  camera.useAutoRotationBehavior = false; // Disable default auto-rotation
+  camera.upperRadiusLimit = 500; // Max zoom out
+  camera.lowerRadiusLimit = 2; // Min zoom in
+
+  // camera.inputs.clear(); // Clear default inputs
+
+  camera.keysLeft = [37]; // Left arrow key
+  camera.keysRight = [39]; // Right arrow key
+  camera.keysUp = [38]; // Up arrow key
+  camera.keysDown = [40]; // Down arrow key
+
+  return camera;
+};
+
 /**
  * Will run on every frame render.  We are spinning the box on y-axis.
  */
@@ -251,10 +246,36 @@ function RouteComponent() {
     }
 
     engineRef.current = new Engine(canvasRef.current, true, {preserveDrawingBuffer: true, stencil: true}, true);
+
+    if (!engineRef.current) {
+      console.error("Engine not created");
+      return;
+    }
+
     sceneRef.current = new Scene(engineRef.current, {});
 
+    if (!sceneRef.current) {
+      console.error("Scene not created");
+      return;
+    }
+
+    cameraRef.current = new ArcRotateCamera("arc-camera",
+      Tools.ToRadians(90),    // alpha (rotation around Y-axis)
+      Tools.ToRadians(60),    // beta (rotation around X-axis from pole)
+      50,                     // radius (distance from target)
+      Vector3.Zero(),         // target (point the camera looks at)
+      sceneRef.current
+    );
+
+    if (!cameraRef.current) {
+      console.error("Camera not created");
+      return;
+    }
+
+    initCamera(cameraRef.current);
+
     if (sceneRef.current.isReady()) {
-      initScene(sceneRef.current, cameraRef.current!);
+      initScene(sceneRef.current, cameraRef.current);
     }
     else {
       sceneRef.current.onReadyObservable.addOnce(scene => initScene(scene, cameraRef.current!));
