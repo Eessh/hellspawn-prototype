@@ -64,18 +64,27 @@ const initScene = (scene: Scene, camera: ArcRotateCamera) => {
     forward = forward.normalize();
     let right = Vector3.Cross(Vector3.Up(), forward).normalize();
 
-    let move = Vector3.Zero();
-    if (keyState['w']) move = move.add(forward.scale(moveSpeed));
-    if (keyState['s']) move = move.subtract(forward.scale(moveSpeed));
-    if (keyState['a']) move = move.subtract(right.scale(moveSpeed));
-    if (keyState['d']) move = move.add(right.scale(moveSpeed));
+    let positionDelta = Vector3.Zero();
 
-    if (!move.equals(Vector3.Zero())) {
-      camera.target.addInPlace(move);
-      camera.position.addInPlace(move);
+    if (keyState['w']) {
+      positionDelta = positionDelta.add(forward.scale(moveSpeed));
+    }
+    if (keyState['s']) {
+      positionDelta = positionDelta.subtract(forward.scale(moveSpeed));
+    }
+    if (keyState['a']) {
+      positionDelta = positionDelta.subtract(right.scale(moveSpeed));
+    }
+    if (keyState['d']) {
+      positionDelta = positionDelta.add(right.scale(moveSpeed));
     }
 
-  //   // Arrow Left/Right: rotate camera view
+    if (!positionDelta.equals(Vector3.Zero())) {
+      camera.target.addInPlace(positionDelta);
+      camera.position.addInPlace(positionDelta);
+    }
+
+    // Arrow Left/Right: rotate camera view
     if (keyState['ArrowUp']) {
       camera.beta -= verticalSpeed;
     }
