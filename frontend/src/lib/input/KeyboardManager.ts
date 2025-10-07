@@ -1,8 +1,3 @@
-/**
- * Fully typesafe keyboard manager
- */
-
-// Define all standard keyboard key codes for autocomplete
 export const Keys = {
   // Letters
   A: 'KeyA',
@@ -87,11 +82,41 @@ export type KeyCode = typeof Keys[keyof typeof Keys];
  * Keyboard manager that tracks key states with type safety
  */
 export class KeyboardManager {
+  /**
+   * Key states map.
+   * 
+   * Persists key states across frames.
+   */
   private readonly keyStates: Map<string, boolean> = new Map();
+
+  /**
+   * Keys that were just pressed/released this frame.
+   * 
+   * Cleared at the end of each frame.
+   */
   private readonly keyJustPressed: Map<string, boolean> = new Map();
+
+  /**
+   * Keys that were just released this frame.
+   * 
+   * Cleared at the end of each frame.
+   */
   private readonly keyJustReleased: Map<string, boolean> = new Map();
 
+  /**
+   * Bound keydown event handler to maintain `this` context.
+   * 
+   * Binding to `this` in the constructor ensures that `this` refers to the KeyboardManager instance.
+   * The same function reference is used when adding and removing event listeners.
+   */
   private readonly boundHandleKeyDown: (event: KeyboardEvent) => void;
+
+  /**
+   * Bound keyup event handler to maintain `this` context.
+   * 
+   * Binding to `this` in the constructor ensures that `this` refers to the KeyboardManager instance.
+   * The same function reference is used when adding and removing event listeners.
+   */
   private readonly boundHandleKeyUp: (event: KeyboardEvent) => void;
   
   constructor() {
@@ -167,6 +192,7 @@ export class KeyboardManager {
   destroy(): void {
     window.removeEventListener('keydown', this.boundHandleKeyDown);
     window.removeEventListener('keyup', this.boundHandleKeyUp);
+    
     this.keyStates.clear();
     this.keyJustPressed.clear();
     this.keyJustReleased.clear();
