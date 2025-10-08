@@ -79,6 +79,11 @@ export type TKeyCode = (typeof Keys)[keyof typeof Keys];
 
 export type TKeybindingCallback = () => void;
 
+export type TKeybinding = {
+  keys: TKeyCode[];
+  callback: TKeybindingCallback;
+};
+
 /**
  * Keyboard manager that tracks key states.
  *
@@ -109,10 +114,7 @@ export class KeyboardManager {
   /**
    * Map of keybinding names to their key codes and callbacks.
    */
-  private readonly keybindings: Map<
-    string,
-    { keys: TKeyCode[]; callback: TKeybindingCallback }
-  > = new Map();
+  private readonly keybindings: Map<string, TKeybinding> = new Map();
 
   /**
    * Map from key code to set of binding names that include that key.
