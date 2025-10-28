@@ -215,16 +215,7 @@ const initCamera = (camera: ArcRotateCamera) => {
  * Will run on every frame render.  We are spinning the box on y-axis.
  */
 const onRender = (scene: Scene) => {
-  if (box !== undefined) {
-    const deltaTimeInMillis = scene.getEngine().getDeltaTime();
-
-    for (let i = 0; i < CUBE_COUNT; i++) {
-      scene.getTransformNodeByName("boxInstance" + i)?.rotate(Vector3.Up(), (10 / 60) * Math.PI * 2 * (deltaTimeInMillis / 1000));
-    }
-
-    // const rpm = 10;
-    // box.rotation.y += (rpm / 60) * Math.PI * 2 * (deltaTimeInMillis / 1000);
-  }
+  
 };
 
 function RouteComponent() {
@@ -314,11 +305,11 @@ function RouteComponent() {
   }, []);
 
   return (
-    <ResizablePanelGroup direction="horizontal">
+    <ResizablePanelGroup direction="horizontal" autoSaveId="layout-horizontal">
       <ResizablePanel>Scene Tree</ResizablePanel>
       <ResizableHandle />
       <ResizablePanel onResize={debouncedResizeHandler}>
-        <ResizablePanelGroup direction="vertical">
+        <ResizablePanelGroup direction="vertical" autoSaveId="layout-vertical">
           <ResizablePanel style={{ position: "relative" }} onResize={debouncedResizeHandler}>
             <Viewport canvasRef={canvasRef} />
           </ResizablePanel>
