@@ -9,6 +9,8 @@ import { GridMaterial } from '@babylonjs/materials';
 import { useEffect, useRef } from 'react';
 import Viewport from '@/components/Viewport';
 import { debounce } from '@/lib/utils';
+import { Keys } from '@/lib/input/KeyboardManager';
+import { KeyboardShortcutService } from '@/services';
 
 export const Route = createLazyFileRoute('/$projectID')({
   component: RouteComponent,
@@ -32,6 +34,10 @@ const initScene = (scene: Scene, camera: ArcRotateCamera) => {
   const moveSpeed = 1.0;
   const verticalSpeed = 0.01;
   const rotateSpeed = 0.025; // radians per frame
+
+  KeyboardShortcutService.registerKeybinding([Keys.F11], () => {
+    canvas?.requestFullscreen();
+  });
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key.length === 1) {
@@ -291,6 +297,8 @@ function RouteComponent() {
     }
 
     engineRef.current.runRenderLoop(() => {
+      KeyboardShortcutService.update();
+
       onRender(sceneRef.current!);
 
       sceneRef.current!.render();

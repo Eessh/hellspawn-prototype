@@ -155,11 +155,42 @@ export class KeyboardManager {
     }
 
     this.keyStates.set(event.code, true);
+
+    if (this.keybindingExists()) {
+      event.preventDefault();
+    }
   }
 
   private handleKeyUp(event: KeyboardEvent): void {
     this.keyStates.set(event.code, false);
     this.keyJustReleased.set(event.code, true);
+  }
+
+  /**
+   * Check if any registered keybinding matches the currently pressed keys.
+   * @returns `true` if exists.
+   */
+  private keybindingExists(): boolean {
+    // get all currently pressed keys
+    const pressedKeys = new Set<TKeyCode>();
+
+    for (const [code, pressed] of this.keyStates.entries()) {
+      if (pressed) {
+        pressedKeys.add(code as TKeyCode);
+      }
+    }
+
+    // check if these exact keys match any registered keybinding
+    for (const binding of this.keybindings.values()) {
+      if (
+        binding.keys.length === pressedKeys.size &&
+        binding.keys.every((key) => pressedKeys.has(key))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
