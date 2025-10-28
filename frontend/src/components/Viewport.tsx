@@ -4,9 +4,10 @@ type TViewportProps = {
 
 function Viewport({ canvasRef }: TViewportProps) {    
     const toggleFullscreen = () => {
-        if (!document.fullscreenElement) {
+        if (document.fullscreenElement === null) {
             canvasRef.current?.requestFullscreen();
-        } else {
+        }
+        else {
             document.exitFullscreen();
         }
     };
