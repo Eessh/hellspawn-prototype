@@ -1,299 +1,99 @@
-Welcome to your new TanStack app! 
+# Hellspawn
 
-# Getting Started
+Hellspawn is a discrete-event simulation environment for warehouse operations where robot emulation is a first-class part of the simulated world.
 
-To run this application:
+## Feature Spec
 
-```bash
-npm install
-npm run start  
-```
+1. Developer users log in, create worlds, assets, configs, and save them through the Gateway as Projects.
+2. Normal users log in and select a Project.
+3. The Gateway starts or attaches to a Simulation Worker for the selected simulation session.
+4. The Simulation Worker loads the world snapshot and configuration, then executes scenario runs.
+5. Users can create scenarios using specific entities and run them as independent serial, chained serial, or parallel batches.
+6. Users can speed-run deterministic simulations, replay scenario runs, inspect traces, monitor multiple live views, and build dashboards from metrics.
+7. Users may opt into video recording, but simulation replay is based on event logs and snapshots, not video.
 
-# Building For Production
+## Architecture Decisions So Far
 
-To build this application for production:
+### Simulation Core
 
-```bash
-npm run build
-```
+Hellspawn uses a discrete-event core. Simulation time, not wall-clock time, owns model execution. Events are ordered by simulation time, microstep, priority phase, and deterministic sequence number.
 
-## Testing
+Models use an ECS shape:
 
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+- Entities represent world objects such as robots, stations, orders, shelves, and path segments.
+- Components are data-only state.
+- Systems are developer-authored logic activated by events.
+- Systems produce staged change sets; the engine commits them deterministically.
 
-```bash
-npm run test
-```
+Systems in one priority phase read the same pre-phase snapshot. Events sharing the same simulation time, microstep, and priority phase are processed as a phase batch. Same-time emitted events go to a later unprocessed phase when possible, otherwise to the next microstep. A configurable microstep limit protects runs from infinite same-time loops.
 
-## Styling
+### Gateway, Worker, And Broker
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
+The Gateway handles authentication, project routing, user command validation, and worker lifecycle. It does not own simulation time or mutate simulation state.
 
+The Simulation Worker is a separate TypeScript package/process from day one. It owns:
 
+- ECS world state
+- authoritative event queue
+- deterministic RNG
+- system execution
+- checkpoints
+- replay
+- run-local adapters
 
-## Shadcn
+The Event Broker is not authoritative for simulation. It handles live stream fanout, reconnect, and client delivery. Broker failures may affect live monitoring, but not simulation correctness or replay truth.
 
-Add components using the latest version of [Shadcn](https://ui.shadcn.com/).
+### Commands And External Systems
 
-```bash
-pnpx shadcn@latest add button
-```
+User commands enter through the Gateway. The worker admits accepted commands at the next deterministic simulation boundary, timestamps them, and enqueues them.
 
+External systems are connected through adapters outside the deterministic core. Gateway-managed adapters handle shared or auth-heavy integrations. Worker-side adapters handle run-specific or low-latency integrations. External results enter simulation through modeled latency events. The first supported latency mode is fixed latency.
 
+Internal systems must use the engine-provided deterministic RNG. External nondeterminism is captured through interaction logs or modeled as input.
 
-## Routing
-This project uses [TanStack Router](https://tanstack.com/router). The initial setup is a file based router. Which means that the routes are managed as files in `src/routes`.
+### Replay, Traces, And Batches
 
-### Adding A Route
+Replay uses a world snapshot/config version plus an authoritative replay log containing user inputs, external inputs, random seeds, and configuration choices. Replay is deterministic within the same engine, model, and configuration versions.
 
-To add a new route to your application just add another a new file in the `./src/routes` directory.
+Internal emitted events, system transitions, reservations, metrics samples, and service calls are stored in a diagnostic event trace. The browser receives filtered live streams through view, entity, metric, and trace-channel subscriptions while the full trace is persisted server-side.
 
-TanStack will automatically generate the content of the route file for you.
+Scenario batches support:
 
-Now that you have two routes you can use a `Link` component to navigate between them.
+- Independent serial runs from the same baseline
+- Chained serial runs where each scenario starts from the previous final state
+- Parallel runs in isolated run contexts or workers
 
-### Adding Links
+Chained serial is the default when live external systems maintain state Hellspawn cannot reset. Scenario boundary checkpoints persist ECS component state, event queue, deterministic RNG state, run metadata, and external interaction cursors.
 
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
+## Tech Stack
 
-```tsx
-import { Link } from "@tanstack/react-router";
-```
+1. Frontend: TypeScript, React, TanStack Router, TanStack Query, TanStack Table, TanStack Form, TanStack Virtual, TanStack Pacer, TanStack Hotkeys, BabylonJS/ThreeJS, WebSockets.
+2. Gateway: TypeScript, Bun/Fastify.
+3. Simulation Worker: TypeScript first; C++ can be introduced later behind stable boundaries for profiled hot paths.
+4. Event Broker: RabbitMQ with Web STOMP, or a custom WebSocket server, for live stream fanout and backpressure.
+5. Database: TimescaleDB.
+6. Cache: Redis.
+7. Observability: ClickStack, Grafana, Prometheus.
 
-Then anywhere in your JSX you can use it like so:
+## Things We Simulate
 
-```tsx
-<Link to="/about">About</Link>
-```
+1. Warehouse operations with robot emulation.
+2. Algorithms operating inside warehouse/robot workflows.
+3. Real hardware robot behavior where hardware logic is emulated internally or controlled through external adapters.
 
-This will create a link that will navigate to the `/about` route.
+## Things We Do Not Simulate
 
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
+1. Computational Fluid Dynamics.
+2. Physics-heavy motion as a first-class requirement.
 
-### Using A Layout
+## Scale Targets
 
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you use the `<Outlet />` component.
+1. Approximately 10,000 3D entities.
+2. Approximately 5 external systems, potentially with 2-3 second modeled update delays.
+3. Frontend should remain smooth at 60 FPS.
+4. Robot movement is modeled through path segment reservations and waypoint events; rendering interpolates motion between authoritative simulation states.
 
-Here is an example layout that includes a header:
+## Project Docs
 
-```tsx
-import { Outlet, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-
-import { Link } from "@tanstack/react-router";
-
-export const Route = createRootRoute({
-  component: () => (
-    <>
-      <header>
-        <nav>
-          <Link to="/">Home</Link>
-          <Link to="/about">About</Link>
-        </nav>
-      </header>
-      <Outlet />
-      <TanStackRouterDevtools />
-    </>
-  ),
-})
-```
-
-The `<TanStackRouterDevtools />` component is not required so you can remove it if you don't want it in your layout.
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-const peopleRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/people",
-  loader: async () => {
-    const response = await fetch("https://swapi.dev/api/people");
-    return response.json() as Promise<{
-      results: {
-        name: string;
-      }[];
-    }>;
-  },
-  component: () => {
-    const data = peopleRoute.useLoaderData();
-    return (
-      <ul>
-        {data.results.map((person) => (
-          <li key={person.name}>{person.name}</li>
-        ))}
-      </ul>
-    );
-  },
-});
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-### React-Query
-
-React-Query is an excellent addition or alternative to route loading and integrating it into you application is a breeze.
-
-First add your dependencies:
-
-```bash
-npm install @tanstack/react-query @tanstack/react-query-devtools
-```
-
-Next we'll need to create a query client and provider. We recommend putting those in `main.tsx`.
-
-```tsx
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-// ...
-
-const queryClient = new QueryClient();
-
-// ...
-
-if (!rootElement.innerHTML) {
-  const root = ReactDOM.createRoot(rootElement);
-
-  root.render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  );
-}
-```
-
-You can also add TanStack Query Devtools to the root route (optional).
-
-```tsx
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-
-const rootRoute = createRootRoute({
-  component: () => (
-    <>
-      <Outlet />
-      <ReactQueryDevtools buttonPosition="top-right" />
-      <TanStackRouterDevtools />
-    </>
-  ),
-});
-```
-
-Now you can use `useQuery` to fetch your data.
-
-```tsx
-import { useQuery } from "@tanstack/react-query";
-
-import "./App.css";
-
-function App() {
-  const { data } = useQuery({
-    queryKey: ["people"],
-    queryFn: () =>
-      fetch("https://swapi.dev/api/people")
-        .then((res) => res.json())
-        .then((data) => data.results as { name: string }[]),
-    initialData: [],
-  });
-
-  return (
-    <div>
-      <ul>
-        {data.map((person) => (
-          <li key={person.name}>{person.name}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export default App;
-```
-
-You can find out everything you need to know on how to use React-Query in the [React-Query documentation](https://tanstack.com/query/latest/docs/framework/react/overview).
-
-## State Management
-
-Another common requirement for React applications is state management. There are many options for state management in React. TanStack Store provides a great starting point for your project.
-
-First you need to add TanStack Store as a dependency:
-
-```bash
-npm install @tanstack/store
-```
-
-Now let's create a simple counter in the `src/App.tsx` file as a demonstration.
-
-```tsx
-import { useStore } from "@tanstack/react-store";
-import { Store } from "@tanstack/store";
-import "./App.css";
-
-const countStore = new Store(0);
-
-function App() {
-  const count = useStore(countStore);
-  return (
-    <div>
-      <button onClick={() => countStore.setState((n) => n + 1)}>
-        Increment - {count}
-      </button>
-    </div>
-  );
-}
-
-export default App;
-```
-
-One of the many nice features of TanStack Store is the ability to derive state from other state. That derived state will update when the base state updates.
-
-Let's check this out by doubling the count using derived state.
-
-```tsx
-import { useStore } from "@tanstack/react-store";
-import { Store, Derived } from "@tanstack/store";
-import "./App.css";
-
-const countStore = new Store(0);
-
-const doubledStore = new Derived({
-  fn: () => countStore.state * 2,
-  deps: [countStore],
-});
-doubledStore.mount();
-
-function App() {
-  const count = useStore(countStore);
-  const doubledCount = useStore(doubledStore);
-
-  return (
-    <div>
-      <button onClick={() => countStore.setState((n) => n + 1)}>
-        Increment - {count}
-      </button>
-      <div>Doubled - {doubledCount}</div>
-    </div>
-  );
-}
-
-export default App;
-```
-
-We use the `Derived` class to create a new store that is derived from another store. The `Derived` class has a `mount` method that will start the derived store updating.
-
-Once we've created the derived store we can use it in the `App` component just like we would any other store using the `useStore` hook.
-
-You can find out everything you need to know on how to use TanStack Store in the [TanStack Store documentation](https://tanstack.com/store/latest).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
+- Domain language: [CONTEXT.md](./CONTEXT.md)
+- Architecture decisions: [docs/adr](./docs/adr)
