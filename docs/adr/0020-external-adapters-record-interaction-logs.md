@@ -1,3 +1,3 @@
-# External adapters record interaction logs
+# Adapters record every external request and response
 
-Replay-capable external adapters record requests, responses, timestamps, correlation IDs, and modeled latency for their interactions with external systems. Live mode uses the real external system and records the interaction log; recorded mode replays that log as simulation input. This makes external nondeterminism inspectable and replayable without claiming Hellspawn controls hidden state inside external services.
+Every adapter conversation with an external service is recorded: requests, responses, timestamps, correlation IDs, and the sim-time stamps applied. Live runs record while they interact; Pure-mode and replay read the recording instead of touching any real service. External unpredictability becomes inspectable, replayable data — without claiming Hellspawn controls the hidden state inside someone else's system.

@@ -1,0 +1,5 @@
+# Five nouns: Project contains Worlds, Configs, Scenarios; Runs are receipts
+
+Everything storable hangs off five nouns with strict roles. A Project is the container (members plus everything below, like a repo). A World is the place: waypoint graph, path segments, stations, shelves, robot fleet and starting positions — versioned, and a World Snapshot is a frozen version of it; 3D assets attach to the World but only the renderer reads them, the sim core reads the graph. A Config is the knobs: robot speeds, traffic policy, mock latencies, warp factor — versioned separately so one warehouse can carry many tunings. A Scenario is the script: one World version + one Config version + an input schedule (order arrivals, faults) + an end condition. A Run is the receipt of executing one Scenario — fingerprint, mode, logs, movie, checkpoints, metrics — produced, never edited.
+
+Boundary test: "busier morning" = new Scenario; "faster robots" = new Config version; "added a conveyor" = new World version. A change that touches exactly one noun confirms the boundaries.

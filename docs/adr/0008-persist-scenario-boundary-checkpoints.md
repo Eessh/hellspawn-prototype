@@ -1,3 +1,3 @@
-# Persist scenario boundary checkpoints
+# A checkpoint is saved between the runs of a batch
 
-Hellspawn persists scenario boundary checkpoints between runs in a scenario batch, especially for chained serial batches. A checkpoint contains ECS component state, event queue, deterministic RNG state, run metadata, and external interaction cursors; it excludes derived UI state, rendered frames, dashboard caches, and hidden external-system state. For live external integrations, hidden state inside external systems is not treated as captured unless the integration explicitly exposes it.
+Between scenario runs in a batch, the worker saves a checkpoint: component state, event queue, RNG state, run metadata, and external interaction cursors. It deliberately excludes derived UI state, rendered frames, dashboard caches, and hidden state inside external services — what an external system won't expose is not pretended to be captured. Extended by ADR-0031: the same checkpoints are also written periodically inside a run, for crash recovery and replay seek.

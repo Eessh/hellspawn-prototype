@@ -1,3 +1,3 @@
-# Systems produce staged change sets
+# Systems stage changes; the engine commits them
 
-Hellspawn systems do not mutate ECS component state directly during event handling. A system reads the current world view and produces a staged change set containing component writes, emitted events, and trace records; the engine commits that change set at a deterministic boundary. This makes replay, debugging, ordering, and conflict detection clearer than allowing arbitrary mid-handler world mutation.
+A system never pokes the world directly. It reads the current world view and stages a change set — component writes, emitted events, trace records — which the engine commits at a deterministic boundary. Ordering, conflict detection, tracing, and replay all become inspectable engine concerns instead of side effects buried inside handlers.

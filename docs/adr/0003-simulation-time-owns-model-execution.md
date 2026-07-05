@@ -1,3 +1,3 @@
-# Simulation time owns model execution
+# Models read only sim time, never the wall clock
 
-Hellspawn executes model behavior against deterministic simulation time, not wall-clock time. Live pacing, pausing, speed-run, and replay are runner concerns; systems and local scheduled events use simulation timestamps even when an external controller is connected. External controllers influence a scenario run by injecting delayed timestamped command events, which preserves deterministic replay while still allowing real services to control simulated robots.
+Model code sees one clock: sim time. Pausing, speeding up, and pacing are runner concerns outside the model, and external services influence a run by injecting timestamped events rather than by driving the clock. In Live modes the runner sets the sim clock from the wall clock 1:1 (ADR-0026), but models still read only sim time — which is why the same model runs unchanged at any speed and replays exactly.

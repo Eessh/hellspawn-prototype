@@ -1,3 +1,3 @@
-# Represent external delay with modeled latency events
+# External delay enters sim time by rule, not by network weather
 
-Hellspawn represents external-system delay through modeled latency events. The first supported latency mode is fixed latency: a configured constant simulation-time delay applied to an external interaction. Adapters may record real interaction timing, but wall-clock response time does not decide simulation time unless a future latency model explicitly introduces that behavior.
+How long an external answer takes in sim time is decided by a configured rule, not by how the network behaved that day. In Pure Simulation Mode, mocked services answer after their configured delay — fixed constant first, measured distributions bottled from live-run logs later. In Live modes (ADR-0026), arrival stamps come from the wall clock and are recorded, which makes them replayable and turns them into the source for calibrating those mock delays.

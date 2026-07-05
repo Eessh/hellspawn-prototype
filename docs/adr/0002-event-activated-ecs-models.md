@@ -1,3 +1,3 @@
-# Use event-activated ECS systems as model units
+# World objects are data; behavior lives in event-woken systems
 
-Hellspawn models world objects as entities with data-only components, while developer-authored systems contain the executable model logic. Systems are activated by simulation events, update component state, and emit new timestamped events; this keeps the ECS model ergonomic without turning the simulation into a fixed-tick loop. The discrete-event kernel remains responsible for simulation time, ordering, determinism, replay, and trace boundaries.
+Entities are world objects (robots, stations, shelves) carrying plain-data components. All behavior lives in Systems: developer-written functions that wake when an event arrives, change component data, and emit new timestamped events. Data and logic stay cleanly separated without turning the sim into a fixed-tick game loop, and the event core stays in charge of time, ordering, determinism, and replay.

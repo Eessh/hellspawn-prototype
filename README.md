@@ -2,98 +2,75 @@
 
 Hellspawn is a discrete-event simulation environment for warehouse operations where robot emulation is a first-class part of the simulated world.
 
-## Feature Spec
+## What users do
 
-1. Developer users log in, create worlds, assets, configs, and save them through the Gateway as Projects.
-2. Normal users log in and select a Project.
-3. The Gateway starts or attaches to a Simulation Worker for the selected simulation session.
-4. The Simulation Worker loads the world snapshot and configuration, then executes scenario runs.
-5. Users can create scenarios using specific entities and run them as independent serial, chained serial, or parallel batches.
-6. Users can speed-run deterministic simulations, replay scenario runs, inspect traces, monitor multiple live views, and build dashboards from metrics.
-7. Users may opt into video recording, but simulation replay is based on event logs and snapshots, not video.
+1. Developers log in and author, inside **Projects**: **Worlds** (the place: waypoint graph, stations, shelves, robots), **Configs** (the knobs: speeds, policies, latencies), and **Scenarios** (the script: world + config + input schedule + end condition).
+2. Users open a project, see its running simulations, and either join one — as **Viewer** (watch) or by taking the **Executor** seat (command) — or start a new simulation as its executor.
+3. A run executes in one of three modes:
+   - **Pure Simulation Mode** — every external service is a mocked internal system; runs as fast as the CPU allows; deterministic; produces real warehouse KPIs.
+   - **Live Simulation Mode** — real external services (WMS, fleet controllers) participate; wall clock drives the sim clock 1:1; everything is recorded.
+   - **Live Warp Mode** — live mode with internal durations shrunk by a warp factor; for fast logic verification of real external software, never for performance numbers.
+4. Scenarios run as batches: independent serial (same baseline each time), chained serial (each run continues from the last), or parallel (isolated workers).
+5. Finished runs are watched via **Playback** — scrubbing a saved movie of state changes. No simulation re-executes for viewing.
+6. **Replay** — deterministically re-running a run from its saved inputs — is an engineering tool: rebuild deleted movies, root-cause debugging with extra tracing, CI verification, and comparison runs (old inputs, new algorithm).
+7. Users build dashboards from run metrics inside the app. Optional video capture exists but is never a source of truth.
 
-## Architecture Decisions So Far
+## How it works
 
-### Simulation Core
+### The core
 
-Hellspawn uses a discrete-event core. Simulation time, not wall-clock time, owns model execution. Events are ordered by simulation time, microstep, priority phase, and deterministic sequence number.
+The sim clock jumps from event to event; nothing ticks. Warehouse life is modeled as meaningful moments — task assigned, path segment reserved, waypoint reached, answer arrived — scheduled as timestamped events. Idle time costs nothing.
 
-Models use an ECS shape:
+World objects are entities carrying plain-data components. All behavior lives in **Systems**: plain synchronous functions that wake on events, stage changes, and emit new events. No await, no network, no wall clock, no `Math.random` inside the core — determinism is enforced by runtime guards, a rolling world hash, and CI that runs everything twice and replays golden logs.
 
-- Entities represent world objects such as robots, stations, orders, shelves, and path segments.
-- Components are data-only state.
-- Systems are developer-authored logic activated by events.
-- Systems produce staged change sets; the engine commits them deterministically.
+Same-moment events are ordered by sim time, then microstep, then phase, then sequence number. Systems in one phase read the same frozen snapshot and stage change sets the engine commits at the phase boundary; two writes to the same field need a declared merge rule or the run fails loudly. A microstep cap turns infinite same-time loops into diagnostic failures.
 
-Systems in one priority phase read the same pre-phase snapshot. Events sharing the same simulation time, microstep, and priority phase are processed as a phase batch. Same-time emitted events go to a later unprocessed phase when possible, otherwise to the next microstep. A configurable microstep limit protects runs from infinite same-time loops.
+### The outside world
 
-### Gateway, Worker, And Broker
+External services are reached only through adapters outside the core. Requests go out as events; answers come back as events with sim-time stamps — from config-modeled delay in Pure mode, from the wall clock in Live modes. Every request and response is recorded with correlation IDs, so live behavior can be bottled into mocks and replays never touch a real service.
 
-The Gateway handles authentication, project routing, user command validation, and worker lifecycle. It does not own simulation time or mutate simulation state.
+### Truth and recovery
 
-The Simulation Worker is a separate TypeScript package/process from day one. It owns:
+Replay truth is the run's saved inputs (user commands, recorded external answers, seeds) plus its starting world snapshot — kilobytes, not gigabytes. Every run stores a fingerprint (engine version, model versions, config hash, seed); replay refuses on mismatch rather than lying. Secrets are referenced by name in a Config and stored elsewhere, so credentials never enter versions, fingerprints, or logs (ADR-0036). Checkpoints are written between scenario runs and periodically inside them, so a crashed live run resumes with an honest gap and replay can seek instead of starting from zero.
 
-- ECS world state
-- authoritative event queue
-- deterministic RNG
-- system execution
-- checkpoints
-- replay
-- run-local adapters
+### People and delivery
 
-The Event Broker is not authoritative for simulation. It handles live stream fanout, reconnect, and client delivery. Broker failures may affect live monitoring, but not simulation correctness or replay truth.
+A session has one executor seat and unlimited viewers, with a presence list and per-user custom views. A heartbeat timeout declares the seat empty — a network blip never vacates it — and only then does a grace timer run (checkpoint + graceful stop on expiry), unless daemon mode keeps the worker running unattended; only project developers may stop a daemon worker. Seat changes and every command are audit-logged with the issuing account. The worker sends one stream of tagged updates to the gateway; the gateway owns all browser WebSockets — auth, subscriptions, per-client conflation, reconnect resync. No message broker sits in the live-view path.
 
-### Commands And External Systems
+## Tech stack
 
-User commands enter through the Gateway. The worker admits accepted commands at the next deterministic simulation boundary, timestamps them, and enqueues them.
+1. Frontend: TypeScript, React, TanStack Router, TanStack Query, TanStack Table, TanStack Form, TanStack Virtual, TanStack Pacer, TanStack Hotkeys, BabylonJS, WebSockets.
+2. Gateway: TypeScript, Bun/Fastify. Owns all browser WebSockets: auth, subscriptions, per-client conflation, snapshot+delta resync (ADR-0027). No message broker in the live-view path.
+3. Simulation Worker: TypeScript first; replay logs double as golden tests for any future C++ port of profiled hot paths (ADR-0023).
+4. Database: Postgres for control-plane data (projects, users, scenarios, run metadata); ClickHouse for diagnostic traces and sim metrics; files on disk (object storage later) for snapshots, checkpoints, replay logs, and playback recordings (ADR-0028).
+5. Observability: ClickStack (OpenTelemetry + ClickHouse + HyperDX) for logs, metrics, traces, ops dashboards, and alerts. User-facing dashboards are a frontend product feature, not an ops tool.
 
-External systems are connected through adapters outside the deterministic core. Gateway-managed adapters handle shared or auth-heavy integrations. Worker-side adapters handle run-specific or low-latency integrations. External results enter simulation through modeled latency events. The first supported latency mode is fixed latency.
+## Repo layout
 
-Internal systems must use the engine-provided deterministic RNG. External nondeterminism is captured through interaction logs or modeled as input.
+```text
+apps/hellspawn              frontend
+services/gateway            auth, projects, sessions, fanout
+services/simulation-worker  engine, systems, adapters
+packages/*                  shared modules (packages/protocol first)
+```
 
-### Replay, Traces, And Batches
+The `backend/` and `frontend/` folders are discarded prototype code (ADR-0034).
 
-Replay uses a world snapshot/config version plus an authoritative replay log containing user inputs, external inputs, random seeds, and configuration choices. Replay is deterministic within the same engine, model, and configuration versions.
-
-Internal emitted events, system transitions, reservations, metrics samples, and service calls are stored in a diagnostic event trace. The browser receives filtered live streams through view, entity, metric, and trace-channel subscriptions while the full trace is persisted server-side.
-
-Scenario batches support:
-
-- Independent serial runs from the same baseline
-- Chained serial runs where each scenario starts from the previous final state
-- Parallel runs in isolated run contexts or workers
-
-Chained serial is the default when live external systems maintain state Hellspawn cannot reset. Scenario boundary checkpoints persist ECS component state, event queue, deterministic RNG state, run metadata, and external interaction cursors.
-
-## Tech Stack
-
-1. Frontend: TypeScript, React, TanStack Router, TanStack Query, TanStack Table, TanStack Form, TanStack Virtual, TanStack Pacer, TanStack Hotkeys, BabylonJS/ThreeJS, WebSockets.
-2. Gateway: TypeScript, Bun/Fastify.
-3. Simulation Worker: TypeScript first; C++ can be introduced later behind stable boundaries for profiled hot paths.
-4. Event Broker: RabbitMQ with Web STOMP, or a custom WebSocket server, for live stream fanout and backpressure.
-5. Database: TimescaleDB.
-6. Cache: Redis.
-7. Observability: ClickStack, Grafana, Prometheus.
-
-## Things We Simulate
+## What we simulate
 
 1. Warehouse operations with robot emulation.
 2. Algorithms operating inside warehouse/robot workflows.
-3. Real hardware robot behavior where hardware logic is emulated internally or controlled through external adapters.
+3. Real hardware robot behavior, emulated internally or driven by external controllers.
 
-## Things We Do Not Simulate
+Not: computational fluid dynamics, physics-heavy motion. Robot movement is reservation-based waypoint progression; rendering interpolates between simulation states.
 
-1. Computational Fluid Dynamics.
-2. Physics-heavy motion as a first-class requirement.
+## Scale targets
 
-## Scale Targets
+1. ~10,000 3D entities, ~100–200 active per moment.
+2. ~5 external systems.
+3. Frontend smooth at 60 FPS; rendering interpolates, the model never ticks per frame.
 
-1. Approximately 10,000 3D entities.
-2. Approximately 5 external systems, potentially with 2-3 second modeled update delays.
-3. Frontend should remain smooth at 60 FPS.
-4. Robot movement is modeled through path segment reservations and waypoint events; rendering interpolates motion between authoritative simulation states.
-
-## Project Docs
+## Project docs
 
 - Domain language: [CONTEXT.md](./CONTEXT.md)
 - Architecture decisions: [docs/adr](./docs/adr)

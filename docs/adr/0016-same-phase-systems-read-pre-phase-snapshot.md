@@ -1,3 +1,3 @@
-# Same-phase systems read a pre-phase snapshot
+# Systems in one phase all read the same frozen view
 
-Hellspawn gives all systems executing in the same priority phase the same pre-phase ECS snapshot. Systems produce staged change sets against that snapshot, and the engine commits the merged result at the phase boundary. If one system must observe another system's output, that dependency must be represented with a later phase, subphase, or future event.
+Every system executing in the same phase reads the identical pre-phase snapshot of the world and stages its changes against it; the engine commits the merged result at the phase boundary. One system can never observe another's output within the same phase — if B depends on A's result, that dependency must be expressed as a later phase, a subphase, or a future event. Execution order within a phase therefore cannot change results.

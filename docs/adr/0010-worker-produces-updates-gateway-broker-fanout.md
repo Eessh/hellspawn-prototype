@@ -1,3 +1,3 @@
-# Worker produces updates, gateway and broker fan out
+# Worker emits one stream; the gateway fans out to clients
 
-Simulation workers produce tagged run updates for live subscriptions and trace persistence. The gateway and event broker handle routing and fanout to subscribed clients, keeping the worker focused on deterministic simulation instead of browser subscription management. A separate stream projection service can be introduced later if fanout or query load outgrows the gateway/broker path.
+The worker tags each run update with routing metadata and sends it over a single stream. The gateway handles everything browser-shaped: connections, subscriptions, routing, fanout. The worker never manages client subscriptions — it stays a pure sim engine. Refined by ADR-0027: no message broker sits in the live-view path; a dedicated stream service can be split out of the gateway later if fanout load demands it.

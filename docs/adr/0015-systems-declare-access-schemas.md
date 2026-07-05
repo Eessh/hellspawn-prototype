@@ -1,3 +1,3 @@
-# Systems declare access schemas
+# Systems declare up front what they read and write
 
-Hellspawn systems declare their component read/write access schema when registered. The schema documents model behavior, enables early validation, and leaves room for future scheduling optimizations, while staged change sets remain the runtime authority for actual writes. This balances ECS flexibility with deterministic simulation and debuggable commits.
+At registration, every system declares its component read/write schema. The declaration documents the model, lets the engine validate early, and leaves the door open for scheduling optimizations later — while staged change sets remain the runtime enforcement of what actually got written.

@@ -1,0 +1,3 @@
+# Every run stores a fingerprint; mismatched replay is refused
+
+Replay means re-running code, so a replay is only truthful on the exact code and config that produced the log. Every run's log header stores a fingerprint — engine version, model package versions, config hash, seed (v1: git SHA + package versions, stamped at run start). Replay compares fingerprints and refuses on mismatch; a replay that might diverge silently is worse than no replay. Two explicit escape hatches: a "comparison run" deliberately re-runs old inputs on new code and is labeled as a new run, never a replay; or the developer checks out the fingerprinted git SHA to replay exactly (container images per release later if needed).

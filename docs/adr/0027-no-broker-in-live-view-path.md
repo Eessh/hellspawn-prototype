@@ -1,0 +1,3 @@
+# No message broker in the live-view path
+
+Browser live views are telemetry: clients need the newest value fast, not every intermediate value. Queues deliver everything in order — the opposite — so a slow browser on RabbitMQ gets an ever-growing, ever-staler backlog. Therefore the worker sends one binary stream of tagged run updates to the gateway, and the gateway owns all browser WebSockets: auth, subscriptions, per-client conflation (keep newest per entity, drop stale), and snapshot+delta resync on reconnect. The worker stays a pure sim engine with a single consumer; a slow client hurts only itself. RabbitMQ/webstomp is out of the live path entirely (refines ADR-0010); a broker may return later only for genuine queueing jobs such as batch dispatch.

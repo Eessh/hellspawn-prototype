@@ -1,3 +1,3 @@
-# Use explicit reducers for write conflicts
+# Same field, same moment, two writers: declared merge rule or loud failure
 
-Hellspawn permits multiple systems to contribute writes to the same component field only when an explicit reducer is registered for that field or operation. Reducers make legitimate aggregation deterministic while preventing accidental last-writer-wins behavior. Actual conflicts are detected from staged change sets at commit time, because the event queue alone cannot reliably reveal which entities and component fields a system will touch.
+When two systems write the same component field in the same commit, the engine requires a registered reducer — an explicit merge rule such as "sum" or "higher priority wins". No reducer means the run fails loudly at commit with both writers named in the trace. Silent last-writer-wins is banned: it always "works", picks an arbitrary winner, and hides the bug forever. Conflicts are detected from staged change sets, since the event queue alone cannot reveal what a system will touch.

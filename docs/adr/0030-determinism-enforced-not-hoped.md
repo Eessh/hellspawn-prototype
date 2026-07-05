@@ -1,0 +1,5 @@
+# Determinism is enforced, not hoped for
+
+Replay, A/B comparison, and golden-log porting all rest on the engine giving the same result every run, and in TypeScript one careless line (`Math.random()`, `Date.now()`, unordered iteration) silently breaks it. Three guards: (1) while a System executes, engine-injected `Math.random`/`Date.now` throw — use the engine RNG and sim clock; (2) the engine keeps a rolling world hash over every committed change, so any point in a run is one number summarizing the world's history; (3) CI runs every example scenario twice and compares hashes (catches nondeterminism) and replays stored golden logs against current code (catches unintended model changes — intended changes regenerate goldens, forcing the diff to be seen). Hash divergence bisects to the exact event where two histories split.
+
+Note: everyday viewing of a finished run is playback of the Playback Recording (no simulation executes); engine replay is a tool for regenerating movies, deep debugging, CI verification, and comparison runs.

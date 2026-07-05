@@ -1,3 +1,3 @@
-# Support scenario batch execution modes
+# Three batch shapes: independent serial, chained serial, parallel
 
-Hellspawn supports independent serial, chained serial, and parallel scenario batches. Chained serial is the default for live or stateful external integrations because external systems may maintain internal state that Hellspawn cannot safely clear; independent serial requires resettable or mocked external state. Parallel batches require isolated run contexts or workers so concurrent scenario runs cannot contaminate each other's event queues, ECS state, RNG state, traces, or external-service sessions.
+A scenario batch runs one of three ways. Independent serial: every run starts from the same reset baseline — requires externals that can be reset or mocked. Chained serial: each run continues from the previous run's final state — the default when live external services hold state Hellspawn cannot clear. Parallel: runs execute concurrently in fully isolated workers, so nothing (queues, world state, RNG, traces, external sessions) can leak between them — which in practice means mocked or per-run external sessions.

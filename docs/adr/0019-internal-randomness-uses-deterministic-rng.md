@@ -1,3 +1,3 @@
-# Internal randomness uses deterministic RNG
+# Randomness comes from the engine's seeded RNG only
 
-Hellspawn internal systems use an engine-provided deterministic RNG instead of language/runtime random APIs. RNG state is part of checkpoints and replay version boundaries, enabling deterministic replay and scenario comparison. Randomness produced by external systems is external nondeterminism; Hellspawn captures it through interaction logs or models it as input rather than pretending the engine controls it.
+Internal systems draw randomness exclusively from the engine-provided seeded RNG — never `Math.random` or other runtime APIs (enforced at runtime by ADR-0030). RNG state travels in checkpoints and the run fingerprint, so replays and comparisons reproduce the same "random" behavior exactly. Randomness from external systems is a different animal: it gets captured in interaction logs or modeled as input, never pretended to be under engine control.

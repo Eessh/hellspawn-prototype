@@ -1,0 +1,5 @@
+# Storage picked by data shape: Postgres + ClickHouse + files
+
+Hellspawn stores four shapes of data, each in the store built for that shape. Relational control-plane data (projects, users, scenarios, run/batch metadata) lives in plain Postgres. Blobs (world snapshots, checkpoints, replay logs, playback recordings) live as files on disk in v1 (object storage later), with pointer rows in Postgres. High-volume columnar time series (diagnostic event trace, sim metrics) lives in ClickHouse, which doubles as the backend of ClickStack for Hellspawn's own logs/metrics/traces — one database and one query language for "what did the warehouse do" and "what did the server do".
+
+Dropped: TimescaleDB (its jobs split into plain Postgres + ClickHouse), Prometheus and Grafana (OTel collector + HyperDX cover metrics, dashboards, alerts in v1 — Grafana/Metabase can bolt onto the same stores later without rework), and Redis (no job exists for it; sessions are gateway memory or a Postgres row). User-facing dashboards are a product feature in the frontend querying via the gateway, not an ops tool.

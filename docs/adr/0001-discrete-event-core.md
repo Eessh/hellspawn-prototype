@@ -1,3 +1,3 @@
-# Use a discrete-event simulation core
+# The sim clock jumps from event to event — nothing ticks
 
-Hellspawn uses a discrete-event simulation core as the source of truth for scenario execution. Warehouse operations are dominated by meaningful changes such as task assignment, path reservation, waypoint arrival, inventory changes, and external system responses; representing these as timestamped events gives better speed-run, replay, traceability, and deterministic ordering than a fixed-tick loop. Fixed-step behavior may still exist inside specific models or in the renderer, but it does not drive simulation time.
+Warehouse life is meaningful moments: task assigned, segment reserved, waypoint reached, answer arrived. We schedule those as timestamped events and let the clock jump straight from one to the next. Idle time costs nothing, quiet stretches simulate in microseconds, and every run is ordered, traceable, and repeatable — none of which a fixed-rate tick loop gives. Fixed-rate behavior may exist inside a specific model or in the renderer, but it never drives the sim clock.

@@ -12,8 +12,24 @@ _Avoid_: Generic scenario, demo
 An emulated warehouse actor that moves, senses, receives commands, and changes warehouse state during a simulation.
 _Avoid_: Bot, agent when referring to warehouse hardware
 
+**Project**:
+The container: members plus the **Worlds**, **Configs**, **Scenarios**, and **Scenario Runs** that belong together. Like a repo.
+_Avoid_: Workspace, simulation
+
+**World**:
+The place: waypoint graph, **Path Segments**, stations, shelves, robot fleet and starting positions. Versioned; a **World Snapshot** is a frozen version. 3D assets attach here but only the renderer reads them.
+_Avoid_: Scene, map file
+
+**Config**:
+The knobs: robot speeds, **Traffic Policy** choice, mock service latencies, **Warp Factor**, engine limits. Versioned separately from the **World** so one warehouse carries many tunings.
+_Avoid_: Settings blob mixed into the world
+
+**Scenario**:
+The script: one **World** version + one **Config** version + an input schedule (order arrivals, faults, shift patterns) + an end condition.
+_Avoid_: Test, session
+
 **Scenario Run**:
-One execution of a configured warehouse operation under a specific set of initial conditions and inputs.
+One execution of a **Scenario** — the receipt: **Run Fingerprint**, run mode, logs, **Playback Recording**, checkpoints, metrics. Produced, never edited.
 _Avoid_: Test, session
 
 **Simulation Session**:
@@ -23,6 +39,26 @@ _Avoid_: Scenario when referring to the active runtime
 **Scenario Batch**:
 A group of **Scenario Runs** executed under one user request or experiment plan.
 _Avoid_: Simulation when referring only to grouped runs
+
+**Executor**:
+The single user holding the command seat of a **Simulation Session**: sends **User Commands**, starts/stops scenarios, hands the seat over. Takeover needs their approval while present; a seat declared empty by the **Presence Timeout** is taken instantly. Every command and seat change is logged with the account that did it.
+_Avoid_: Driver, admin
+
+**Viewer**:
+A user joined to a **Simulation Session** with live views and subscriptions but no command rights. May take the executor seat when it is empty.
+_Avoid_: Observer
+
+**Presence Timeout**:
+The configured heartbeat silence after which the **Executor** is considered gone and the seat empty. Short (seconds) — a network blip never vacates the seat.
+_Avoid_: Grace Period (that decides worker shutdown; this decides presence)
+
+**Grace Period**:
+The configured time a session may run with an empty executor seat (as declared by the **Presence Timeout**) before the worker checkpoints, marks the run interrupted, and stops. Disabled by **Daemon Mode**.
+_Avoid_: Hard kill timeout
+
+**Daemon Mode**:
+A session setting, enabled by the **Executor**, that lets the worker keep running with no executor joined. Only project developers may take a daemon worker's seat and stop it.
+_Avoid_: Orphaned worker
 
 **Independent Serial Batch**:
 A **Scenario Batch** where each **Scenario Run** starts from the same reset baseline.
@@ -65,8 +101,8 @@ Plain simulation data attached to an **Entity**.
 _Avoid_: Behavior, service
 
 **System**:
-Developer-authored model logic that reacts to simulation events, reads and writes **Components**, and emits new simulation events.
-_Avoid_: Tick loop when referring to authoritative simulation behavior
+Developer-authored model logic that reacts to simulation events, reads and writes **Components**, and emits new simulation events. Always a plain synchronous function — no await, no network, no wall clock, no runtime random. There is only one kind of System; "external system" names a remote service, not a kind of System.
+_Avoid_: Tick loop when referring to simulation truth; External system when referring to model code
 
 **Local Scheduled Event**:
 A recurring or delayed event scheduled for a specific **Entity** or **System**, rather than a global simulation tick.
@@ -76,25 +112,41 @@ _Avoid_: Global tick
 A service outside the simulation worker that can issue commands into a **Scenario Run** with modeled communication delay.
 _Avoid_: Robot controller when referring to an out-of-worker service
 
+**Pure Simulation Mode**:
+A run mode where the event queue drives the clock and every external service is replaced by a sync-internal mock **System**. Runs as fast as the CPU allows, deterministic, produces real warehouse KPIs.
+_Avoid_: Live mode
+
+**Live Simulation Mode**:
+A run mode where the wall clock drives the sim clock at 1x and real external services participate. Their events are stamped with the current sim time on arrival and logged.
+_Avoid_: Replay mode, Warp mode
+
+**Live Warp Mode**:
+**Live Simulation Mode** plus a config transform that shrinks internal durations (robot speed etc.) by a **Warp Factor**. Wall clock still drives. Speedup is capped by external think time; results are for logic verification, never performance KPIs.
+_Avoid_: Faster clock (the clock is not faster; internal actions are shorter)
+
+**Warp Factor**:
+The config multiplier applied to internal durations in **Live Warp Mode**.
+_Avoid_: Simulation speed (that is a playback/run concern)
+
+**Movement Update Event**:
+A derived telemetry event carrying a robot's interpolated position at a configured cadence, for consumers that need streams (external controllers in live modes, live views). Not model truth — truth is start-move and **Waypoint Arrival**.
+_Avoid_: Waypoint Arrival, true position
+
 **Recorded Controller Mode**:
-A run mode that replays previously captured external-controller inputs as deterministic simulation events.
+A **Pure Simulation Mode** variant where mock services replay a previously captured **External Interaction Log**.
 _Avoid_: Live mode
 
 **Live Controller Mode**:
-A run mode where an **External Controller** participates during execution and can constrain simulation pacing.
-_Avoid_: Replay mode
+Older name for **Live Simulation Mode** / **Live Warp Mode** participation by an **External Controller**.
+_Avoid_: Use the run-mode names instead
 
 **Simulation Time**:
 The deterministic clock used to order and execute events inside a **Scenario Run**.
 _Avoid_: Wall-clock time when discussing model behavior
 
-**Event Log**:
-The ordered record of simulation inputs and emitted events used as the authoritative replay source for a **Scenario Run**.
-_Avoid_: Video recording, trace when referring to replay truth
-
-**Authoritative Replay Log**:
-The compact replay source containing initial version references, user inputs, external inputs, random seeds, and configuration choices.
-_Avoid_: Diagnostic trace
+**Replay Log**:
+The compact replay truth for a **Scenario Run**: initial version references, user inputs, recorded external inputs, random seeds, and configuration choices.
+_Avoid_: Event Log (older duplicate name), Diagnostic trace, Video recording
 
 **Diagnostic Event Trace**:
 The rich inspection record of internal emitted events, system transitions, reservations, metrics samples, and service calls.
@@ -121,10 +173,14 @@ A live subscription for selected internal or external diagnostic event categorie
 _Avoid_: Metric subscription when the data is causal/event detail
 
 **Run Update**:
-A worker-produced update tagged with routing metadata for live subscriptions and trace persistence.
+A worker-produced update tagged with routing metadata for live subscriptions and trace persistence. The worker sends these over one stream to the gateway; the gateway owns browser connections.
 _Avoid_: Raw socket message
 
-**Authoritative Event Queue**:
+**Conflation**:
+Keeping only the newest value per entity when a live-view client is slower than the stream, instead of queueing every stale update. Done per client at the gateway, never in the worker.
+_Avoid_: Message loss (dropping stale telemetry is correct behavior)
+
+**Event Queue**:
 The simulation worker's internal ordered queue that determines model execution for a **Scenario Run**.
 _Avoid_: Broker queue
 
@@ -184,6 +240,10 @@ _Avoid_: Save file when the versioned replay boundary matters
 A persisted simulation state captured between **Scenario Runs** in a **Scenario Batch**.
 _Avoid_: Hidden external state snapshot
 
+**Periodic Checkpoint**:
+The same checkpoint content captured on a configurable cadence inside a **Scenario Run**, for crash recovery (essential in **Live Simulation Mode**) and fast replay seek.
+_Avoid_: Scenario Boundary Checkpoint (that is between runs; this is inside one)
+
 **External Interaction Cursor**:
 The recorded position in an external interaction log used to resume or replay integration behavior from a checkpoint.
 _Avoid_: External system state
@@ -213,24 +273,48 @@ The replay-capable record of external requests, responses, timestamps, correlati
 _Avoid_: Hidden external state
 
 **Latency Model**:
-The rule used to translate an external interaction into simulation-time delay.
+The rule that decides how long a mock service's answer takes in sim time. Applies to **Pure Simulation Mode**; the live modes stamp real arrival times instead.
 _Avoid_: Raw wall-clock delay when discussing simulation scheduling
 
 **Fixed Latency Model**:
-A **Latency Model** that applies a configured constant simulation-time delay to an external interaction.
+A **Latency Model** that applies a configured constant simulation-time delay. First supported mode; measured delays bottled from live-run logs come later.
 _Avoid_: Measured wall-clock latency
 
 **Modeled Latency Event**:
-An event scheduled by the worker to represent an external result becoming available after a **Latency Model** delay.
+An event scheduled by the worker in **Pure Simulation Mode** to represent a mock service's answer becoming available after a **Latency Model** delay.
 _Avoid_: Immediate external response
 
 **Replay Version Boundary**:
 The engine version, model version, and configuration version within which a **Scenario Run** replay is expected to be deterministic.
 _Avoid_: Forever-compatible replay
 
+**Run Fingerprint**:
+The version stamp stored in every run's log header — engine version, model package versions, config hash, seed. Replay refuses on fingerprint mismatch; re-running old inputs on new code is a comparison run, not a replay. Secrets are referenced by name in a **Config** and stored elsewhere, so values never enter the hash.
+_Avoid_: Best-effort replay
+
+**World Hash**:
+A rolling hash the engine keeps over every committed change. Two runs match exactly when their world hashes match; a divergence bisects to the exact event where two histories split.
+_Avoid_: Config hash (that is part of the **Run Fingerprint**)
+
+**Golden Log**:
+A stored **Replay Log** promoted to a CI regression test: replayed against current code, a **World Hash** mismatch flags an unintended model change.
+_Avoid_: Any replay log (golden = promoted to a test)
+
 **Video Recording**:
-An optional user-requested visual capture of a **Scenario Run** that is not authoritative for replay.
+An optional user-requested visual capture of a **Scenario Run** that is never replay truth.
 _Avoid_: Replay source
+
+**Playback Recording**:
+A saved stream of state changes from a **Scenario Run**, played like a movie for fast scrubbing in the browser. Not replay truth — it can be deleted and rebuilt any time by re-running the saved inputs.
+_Avoid_: Replay source, Video Recording (that is pixels; this is state changes)
+
+**Playback**:
+Watching a finished run by streaming its **Playback Recording**. No simulation executes. The default way users view finished runs.
+_Avoid_: Replay (that re-runs the engine)
+
+**Replay**:
+Re-running the engine from a run's saved inputs to regenerate state exactly. A tool for rebuilding movies, deep debugging with extra instrumentation, CI verification, and comparison runs — not the everyday viewing path.
+_Avoid_: Playback (that only reads the movie)
 
 ## Relationships
 
@@ -256,17 +340,24 @@ _Avoid_: Replay source
 - An **External Controller** influences a **Scenario Run** by injecting timestamped events into **Simulation Time**
 - An **External Adapter** records an **External Interaction Log** for replay-capable integrations
 - External networking runs through **Gateway-Managed Adapters** or **Worker-Side Adapters**, not inside deterministic system handlers
-- External results enter the **Authoritative Event Queue** through **Modeled Latency Events**
-- The first supported **Latency Model** is **Fixed Latency Model**
-- **Recorded Controller Mode** allows speed-run from captured controller I/O
-- **Live Controller Mode** may pace or pause a **Scenario Run** at external-controller interaction points
-- A replay uses a **World Snapshot** plus an **Authoritative Replay Log** as its authoritative source
+- In **Pure Simulation Mode**, mock answers enter the **Event Queue** as **Modeled Latency Events**; in the live modes, external events are stamped with sim time on arrival
+- The first supported **Latency Model** for mock services is the **Fixed Latency Model**
+- A **Scenario Run** executes in **Pure Simulation Mode**, **Live Simulation Mode**, or **Live Warp Mode**
+- **Pure Simulation Mode** runs as fast as the CPU allows because every service is an internal mock
+- **Live Simulation Mode** and **Live Warp Mode** are wall-clock driven; their speed is capped by real external services
+- A **Project** contains **Worlds**, **Configs**, **Scenarios**, and their **Scenario Runs**
+- A **Scenario** references one **World** version and one **Config** version
+- A **Simulation Session** has at most one **Executor** and any number of **Viewers**
+- The **Presence Timeout** declares the executor seat empty; then the **Grace Period** runs unless **Daemon Mode** is on
+- Any **Viewer** may take an empty executor seat; in **Daemon Mode**, only project developers may
+- A **Scenario Run** produces a **Playback Recording**; **Playback** streams it without executing any simulation
+- A replay uses a **World Snapshot** plus a **Replay Log** as its source of truth
 - A replay is deterministic within its **Replay Version Boundary**
 - A **Diagnostic Event Trace** records internal causality for inspection and debugging
 - A **Filtered Live Stream** sends only subscribed live updates to clients while the full **Diagnostic Event Trace** is persisted
 - A **Filtered Live Stream** is composed from **View Subscriptions**, **Entity Subscriptions**, **Metric Subscriptions**, and **Trace Channel Subscriptions**
-- A simulation worker produces **Run Updates**; the gateway and broker handle routing and fanout
-- The **Authoritative Event Queue** lives inside the simulation worker, not the broker
+- A simulation worker produces **Run Updates** over one stream; the gateway handles routing and fanout
+- The **Event Queue** lives inside the simulation worker, not the gateway
 - A **User Command** is validated by the gateway, then timestamped and enqueued by the simulation worker
 - A **User Command** is admitted at the next deterministic **Simulation Boundary**
 - A **Video Recording** may be attached to a **Scenario Run**, but does not define simulation truth
@@ -275,6 +366,8 @@ _Avoid_: Replay source
 - A **Chained Serial Batch** persists **Scenario Boundary Checkpoints** between runs
 - A **Scenario Boundary Checkpoint** contains ECS component state, event queue, deterministic RNG state, run metadata, and **External Interaction Cursors**
 - **External Nondeterminism** is captured through external interaction logs or modeled inputs, not controlled by **Deterministic RNG**
+- Replay truth = saved inputs (user commands, recorded external responses, seeds) re-run by the engine; a **Playback Recording** is a derived movie for scrubbing, never truth
+- Exact replay serves external responses from the **External Interaction Log**; what-if runs need a mocked external service or a fresh live session
 
 ## Example Dialogue
 
@@ -282,7 +375,7 @@ _Avoid_: Replay source
 > **Domain expert:** "For Hellspawn's primary use case, **Robots** are normal participants in **Warehouse Operations**, not a separate simulation mode."
 >
 > **Dev:** "Do we update every robot position every render frame?"
-> **Domain expert:** "No — robot movement is modeled by **Path Reservations** and **Waypoint Arrivals**; rendering can interpolate between authoritative simulation events."
+> **Domain expert:** "No — robot movement is modeled by **Path Reservations** and **Waypoint Arrivals**; rendering can interpolate between true simulation events."
 >
 > **Dev:** "What happens if a robot cannot reserve the next segment?"
 > **Domain expert:** "It schedules a **Reservation Retry** that records the relevant **Traffic Policy** metadata."
@@ -294,16 +387,19 @@ _Avoid_: Replay source
 > **Domain expert:** "They schedule **Local Scheduled Events** only for robots or systems that need that cadence."
 >
 > **Dev:** "If a real controller is connected, does wall-clock time drive the simulation?"
-> **Domain expert:** "No — the controller injects delayed commands into **Simulation Time**, so speed-run and replay remain deterministic."
+> **Domain expert:** "Yes — that is **Live Simulation Mode**: the wall clock drives the sim clock 1:1 and external events are stamped on arrival. Model code still reads only **Simulation Time**, so the run stays replayable."
 >
-> **Dev:** "Can we speed-run while a live external controller is connected?"
-> **Domain expert:** "Only in **Recorded Controller Mode**; **Live Controller Mode** can be constrained by real controller responses."
+> **Dev:** "Can we run at full speed while a live external controller is connected?"
+> **Domain expert:** "No — full speed is **Pure Simulation Mode**, where services are mocks. With live services, **Live Warp Mode** shrinks internal durations, but real think time still caps it."
 >
 > **Dev:** "Is replay based on saved frames?"
-> **Domain expert:** "No — replay uses the **World Snapshot** and **Event Log**; **Video Recording** is optional and non-authoritative."
+> **Domain expert:** "No — replay uses the **World Snapshot** and **Replay Log**; **Video Recording** is optional and never truth."
+>
+> **Dev:** "Does a user watching a finished run re-execute the simulation?"
+> **Domain expert:** "No — that is **Playback** of the **Playback Recording**. **Replay** re-runs the engine and is a tool for debugging, CI, and rebuilding movies."
 >
 > **Dev:** "Do internal events define replay truth?"
-> **Domain expert:** "No — the **Authoritative Replay Log** defines replay; the **Diagnostic Event Trace** explains causality."
+> **Domain expert:** "No — the **Replay Log** defines replay; the **Diagnostic Event Trace** explains causality."
 >
 > **Dev:** "Should every diagnostic event be pushed live to the browser?"
 > **Domain expert:** "No — clients receive a **Filtered Live Stream**, while the full **Diagnostic Event Trace** is persisted for query."
@@ -312,10 +408,10 @@ _Avoid_: Replay source
 > **Domain expert:** "It creates view, entity, metric, and trace-channel subscriptions."
 >
 > **Dev:** "Does the simulation worker manage every browser subscription?"
-> **Domain expert:** "No — the worker emits tagged **Run Updates**, while the gateway and broker handle routing and fanout."
+> **Domain expert:** "No — the worker emits tagged **Run Updates** over one stream, and the gateway handles routing, fanout, and per-client **Conflation**."
 >
-> **Dev:** "Is the broker part of simulation truth?"
-> **Domain expert:** "No — the worker's **Authoritative Event Queue** owns model execution; the broker handles live delivery."
+> **Dev:** "Is the delivery path part of simulation truth?"
+> **Domain expert:** "No — the worker's **Event Queue** owns model execution; delivery can lag or drop stale updates without changing results, logs, or replay."
 >
 > **Dev:** "Who turns a user command into a simulation event?"
 > **Domain expert:** "The gateway validates it, then the worker timestamps and enqueues it."
@@ -372,16 +468,17 @@ _Avoid_: Replay source
 > **Domain expert:** "No — external networking belongs in **Gateway-Managed Adapters** or **Worker-Side Adapters** outside the deterministic core."
 >
 > **Dev:** "Does wall-clock response time decide simulation time?"
-> **Domain expert:** "No — the worker uses a **Latency Model** and schedules a **Modeled Latency Event**."
+> **Domain expert:** "In **Pure Simulation Mode**, no — mock answers arrive after their **Latency Model** delay. In the live modes, yes — real arrival is stamped and recorded, which is what makes those runs replayable and the mocks calibratable."
 >
 > **Dev:** "Which latency mode exists first?"
-> **Domain expert:** "A **Fixed Latency Model**; sampled and replayed latency can be added later."
+> **Domain expert:** "A **Fixed Latency Model** for mock services; measured delays bottled from live-run logs come later."
 
 ## Flagged Ambiguities
 
 - "robot emulation" is part of the default warehouse simulation scope, not an optional external category.
 - "movement" means reservation-based waypoint progression over **Path Segments** in simulation time, not per-frame physics.
 - "tick" should mean a **Local Scheduled Event** unless a global simulation tick is explicitly being discussed.
-- "external controller" means an out-of-worker service that issues commands with modeled delay, not the simulation clock owner.
-- "speed-run" is unrestricted for deterministic recorded input, but constrained when live external services are participating.
+- "external controller" means an out-of-worker service that issues commands into a run; it is never the simulation clock owner, even in wall-clock-driven live modes.
+- "speed-run" is not a mode name: full speed = **Pure Simulation Mode** (mocked services); **Live Warp Mode** only shrinks internal durations and stays capped by external think time.
+- "replay" and "playback" are different things: **Playback** streams the saved movie for viewing; **Replay** re-runs the engine as an engineering tool.
 - "serial batch" must specify whether it is **Independent Serial Batch** or **Chained Serial Batch** because the replay and external-state assumptions differ.

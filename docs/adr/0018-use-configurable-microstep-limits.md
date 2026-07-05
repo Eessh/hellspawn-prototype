@@ -1,3 +1,3 @@
-# Use configurable microstep limits
+# A cap on same-time cascades, failing loudly
 
-Hellspawn enforces a configurable microstep limit per simulation time. If systems keep emitting same-time events until the limit is exceeded, the scenario run fails with diagnostic trace context instead of hanging or silently advancing time. This protects the discrete-event engine from infinite instantaneous loops while preserving causality.
+Systems emitting same-time events at each other can loop forever without the clock ever advancing. A configurable microstep limit per sim time caps this: exceed it and the run fails with full trace context instead of hanging or silently jumping time. Infinite instantaneous loops become diagnosable model bugs.
